@@ -20,13 +20,17 @@ export function decimalPrice(cents) {
 }
 export function validateData(data) {
   if (!data || data.version !== 1 || !['schools', 'categories', 'resources'].every(k => Array.isArray(data[k]))) throw Error('El respaldo no tiene un formato compatible.');
+  if (data.currency !== undefined && data.currency !== 'USD') throw Error('El inventario debe estar expresado en USD.');
   for (const key of ['schools', 'categories', 'resources']) {
+    if (data[key].length > 5000) throw Error('Máximo 5000 registros por tabla.');
     const ids = new Set();
     for (const item of data[key]) {
-      if (!item || typeof item.id !== 'string' || !item.id || ids.has(item.id) || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 120) throw Error('Hay registros inválidos o identificadores duplicados.');
+      if (!item || typeof item.id !== 'string' || !item.id || item.id.length > 120 || ids.has(item.id) || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 120) throw Error('Hay registros inválidos o identificadores duplicados.');
       ids.add(item.id);
     }
   }
+  for (const key of ['schools','categories']) if (new Set(data[key].map(item=>item.name.trim().toLocaleLowerCase('es'))).size !== data[key].length) throw Error('Hay nombres de colegios o categorías repetidos.');
+  if (data.schools.some(s=>s.location != null && (typeof s.location !== 'string' || s.location.length > 160))) throw Error('La ubicación del colegio no es válida.');
   for (const r of data.resources) {
     if (r.unitPrice != null && !validUnitPrice(r.unitPrice)) throw Error('El precio unitario debe ser un número entre 0 y 10.000.000, con hasta dos decimales.');
     if (!data.schools.some(s => s.id === r.schoolId) || !data.categories.some(c => c.id === r.categoryId) || !STATES.includes(r.state) || !USES.includes(r.use) || !Number.isInteger(r.quantity) || r.quantity < 1 || r.quantity > 1000000 || !Number.isInteger(r.target) || r.target < 1 || r.target > 1000000 || !Number.isInteger(r.year) || r.year < 1980 || r.year > YEAR || typeof r.code !== 'string' || !r.code.trim() || r.code.length > 60) throw Error('Un recurso tiene datos o relaciones inválidos.');

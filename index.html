@@ -7,9 +7,17 @@
   <link rel="stylesheet" href="css/styles.css">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@3.0.1/dist/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
   <script type="module" src="js/app.js"></script>
 </head>
-<body>
+<body class="cloud-start">
+  <section id="auth-screen" class="auth-screen">
+    <div class="auth-card"><a class="brand" href="#dashboard"><span class="brand-mark">n</span> nexo.</a><p class="eyebrow">INVENTARIO COMPARTIDO · USD</p><h1>Tu coordinación,<br>en un mismo lugar.</h1><p>Ingresá con tu cuenta autorizada para consultar y gestionar el inventario de las instituciones.</p>
+      <form id="login-form" method="post"><label>Correo electrónico<input type="email" name="email" autocomplete="username" required maxlength="254"></label><label>Contraseña<input type="password" name="password" autocomplete="current-password" required></label><button class="button primary" type="submit">Ingresar</button></form>
+      <p id="auth-message" role="status">Conectando con Supabase…</p><button id="retry-cloud" class="button secondary" type="button" hidden>Reintentar conexión</button><button id="auth-signout" class="text-button" type="button" hidden>Cerrar sesión</button>
+      <small>El administrador debe crear tu cuenta y autorizarla. Los datos guardados anteriormente en tu navegador se conservan.</small><noscript>Necesitás activar JavaScript para utilizar esta aplicación.</noscript>
+    </div>
+  </section>
   <aside class="sidebar">
     <a class="brand" href="#dashboard"><span class="brand-mark">n</span> nexo<span class="brand-dot">.</span></a>
     <p class="brand-sub">COORDINACIÓN DE TECNOLOGÍA</p>
@@ -29,6 +37,7 @@
     <main>
       <div class="page-heading"><div><p class="eyebrow">INVENTARIO & PLANIFICACIÓN</p><h1 id="page-title">Dashboard general</h1><p id="page-description">Una mirada integral a la tecnología de tus instituciones.</p></div><div class="heading-actions"><button class="button secondary" id="pdf-button">↓ Imprimir resumen</button><button class="button primary" id="add-button">＋ Nuevo recurso</button></div></div>
       <div id="storage-warning" class="notice" hidden></div>
+      <div id="cloud-toolbar" class="cloud-toolbar" hidden><div><b id="cloud-user"></b><span id="cloud-state" role="status"></span></div><div><button class="button secondary" id="refresh-cloud">↻ Actualizar datos</button><button class="text-button" id="local-backup">Descargar inventario local anterior</button><button class="text-button" id="signout-button">Cerrar sesión</button></div></div>
       <div id="demo-banner" class="demo-banner" hidden><span><b>Vista de demostración</b> · Explorá el sistema con datos de ejemplo. Podés comenzar con tu inventario cuando quieras.</span><button id="start-empty">Comenzar sin ejemplos →</button></div>
       <section class="filter-panel" id="filters" aria-label="Filtros de inventario">
         <div class="filter-top"><b>Filtrar inventario</b><button class="text-button" id="clear-filters">Restablecer filtros ↺</button></div>

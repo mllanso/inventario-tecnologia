@@ -1,14 +1,17 @@
+import { SUPABASE_CONFIG } from './config.js';
+import { CloudInventory, cloudError } from './cloud.js';
 import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice } from './domain.js';
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const KEY = 'nexo.inventory.v1';
 let raw = null, data, demo = false, storageBlocked = false;
+let cloudClient = null, cloudStore = null, cloudSession = null, cloudBusy = false, cloudLoaded = false;
 function warning(message) { $('#storage-warning').textContent = message; $('#storage-warning').hidden = false; }
 try {
-  raw = localStorage.getItem(KEY);
-  data = raw ? validateData(JSON.parse(raw)) : demoData();
-  demo = !raw;
+  raw = SUPABASE_CONFIG.enabled ? null : localStorage.getItem(KEY);
+  data = SUPABASE_CONFIG.enabled ? {version:1,currency:'USD',schools:[],categories:[],resources:[]} : raw ? validateData(JSON.parse(raw)) : demoData();
+  demo = !SUPABASE_CONFIG.enabled && !raw;
 } catch {
   storageBlocked = true;
   data = {version:1, schools:[], categories:[], resources:[]};
@@ -17,7 +20,8 @@ try {
 const filters = { search:'', schools:[], categories:[], states:[], uses:[] };
 let currentView = 'dashboard', charts = {}, editing = null, toastTimer;
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => $('#toast').hidden = true, 5000); }
-function persist(next, recovery = false) {
+async function persist(next, recovery = false) {
+  if (SUPABASE_CONFIG.enabled) return saveCloud(next);
   try {
     validateData(next);
     if (storageBlocked && !recovery) throw Error('Restaurá un respaldo válido antes de modificar los datos.');
@@ -30,7 +34,7 @@ function persist(next, recovery = false) {
     return true;
   } catch (error) { toast('No se guardó: ' + error.message); return false; }
 }
-window.addEventListener('storage', event => { if (event.key === KEY || event.key === null) warning('El almacenamiento cambió en otra pestaña. Recargá esta página para ver la última versión antes de editar.'); });
+window.addEventListener('storage', event => { if (!SUPABASE_CONFIG.enabled && (event.key === KEY || event.key === null)) warning('El almacenamiento cambió en otra pestaña. Recargá esta página para ver la última versión antes de editar.'); });
 function clone() { return structuredClone(data); }
 function ask(title, message, action) {
   $('#confirm-title').textContent = title; $('#confirm-message').textContent = message;
@@ -83,6 +87,7 @@ function renderContent() {
   renderTable(rows);
   if (currentView === 'dashboard') renderDashboard(rows);
   if (['schools','categories'].includes(currentView)) renderEntities();
+  applyAccess();
 }
 function badge(label, tone, title = '') { return `<span class="badge ${tone}" title="${escapeHTML(title)}">${escapeHTML(label)}</span>`; }
 function renderTable(rows) {
@@ -134,6 +139,7 @@ function showRecommendations(name,rows) {
   $('#form-error').textContent=''; $('#editor-form button[type="submit"]').hidden=true; $('#editor').showModal();
 }
 function openEditor(key,id) {
+  if (SUPABASE_CONFIG.enabled && !canEditCloud()) { toast('Necesitás acceso de edición y el inventario actualizado.'); return; }
   if (key==='resources' && (!data.schools.length || !data.categories.length)) { toast('Primero registrá al menos un colegio y una categoría.'); return; }
   const item = id ? data[key].find(x=>x.id===id) : {};
   editing = {key,id};
@@ -156,7 +162,9 @@ function openEditor(key,id) {
     updateTotal();
   }
 }
-$('#editor-form').onsubmit=event=>{
+$('#editor-form').onsubmit=async event=>{
+  event.preventDefault();
+  if (cloudBusy) return;
   event.preventDefault();
   const {key,id}=editing;
   const values=Object.fromEntries(new FormData(event.target));
@@ -171,18 +179,19 @@ $('#editor-form').onsubmit=event=>{
   }
   const next=clone(); const record={...values,id:id||crypto.randomUUID()};
   if(id) next[key][next[key].findIndex(x=>x.id===id)]=record; else next[key].push(record);
-  if(persist(next)) { $('#editor').close();render();toast('Cambios guardados en este navegador.'); }
+  if(await persist(next)) { $('#editor').close();render();toast(SUPABASE_CONFIG.enabled ? 'Cambios guardados en Supabase.' : 'Cambios guardados en este navegador.'); }
 };
 function deleteRecord(key,id) {
+  if (SUPABASE_CONFIG.enabled && !canEditCloud()) { toast('Necesitás acceso de edición.'); return; }
   const record=data[key].find(x=>x.id===id);
   if(key!=='resources'&&data.resources.some(r=>r[key==='schools'?'schoolId':'categoryId']===id)) { toast('Este registro tiene recursos asignados. Reasignalos o eliminalos antes de continuar.');return; }
-  ask('Eliminar registro',`¿Eliminar “${record.name}”? Esta acción no se puede deshacer.`,()=>{const next=clone();next[key]=next[key].filter(x=>x.id!==id);if(persist(next)){render();toast('Registro eliminado.');}});
+  ask('Eliminar registro',`¿Eliminar “${record.name}”? Esta acción no se puede deshacer.`,async()=>{const next=clone();next[key]=next[key].filter(x=>x.id!==id);if(await persist(next)){render();toast('Registro eliminado.');}});
 }
 $('#add-button').onclick=()=>openEditor(['schools','categories'].includes(currentView)?currentView:'resources');
 $('#search').oninput=event=>{filters.search=event.target.value;renderContent();};
 $('#clear-filters').onclick=()=>{Object.assign(filters,{search:'',schools:[],categories:[],states:[],uses:[]});$('#search').value='';render();};
 $('#show-rules').onclick=()=>$('#rules-dialog').showModal();
-$('#start-empty').onclick=()=>ask('Comenzar un inventario vacío','Se quitarán los datos de demostración y se guardará un inventario vacío en este navegador.',()=>{if(persist({version:1,schools:[],categories:[],resources:[]})){render();toast('Inventario listo. Comenzá registrando colegios y categorías.');}});
+$('#start-empty').onclick=()=>ask('Comenzar un inventario vacío','Se quitarán los datos de demostración y se guardará un inventario vacío en este navegador.',async()=>{if(await persist({version:1,schools:[],categories:[],resources:[]})){render();toast('Inventario listo. Comenzá registrando colegios y categorías.');}});
 function download(content,type,filename) { const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000); }
 const dateStamp=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Argentina/Buenos_Aires'}).replaceAll('/','-');
 $('#csv-button').onclick=()=>{
@@ -198,7 +207,7 @@ $('#restore-file').onchange=async event=>{
   try {
     if(file.size>5000000) throw Error('El respaldo supera el máximo de 5 MB.');
     const restored=validateData(JSON.parse(await file.text()));
-    ask('Restaurar inventario',`Se reemplazará el inventario de este navegador por ${restored.schools.length} colegios, ${restored.categories.length} categorías y ${restored.resources.length} lotes. Descargá un respaldo del inventario actual antes de confirmar si querés conservarlo.`,()=>{if(persist(restored,true)){render();toast('Inventario restaurado.');}});
+    ask('Restaurar inventario',`Se reemplazará el inventario ${SUPABASE_CONFIG.enabled ? 'compartido de la coordinación' : 'de este navegador'} por ${restored.schools.length} colegios, ${restored.categories.length} categorías y ${restored.resources.length} lotes. Descargá un respaldo del inventario actual antes de confirmar si querés conservarlo.`,async()=>{if(await persist(restored,true)){render();toast('Inventario restaurado.');}});
   }catch(error){toast('No se pudo restaurar: '+error.message);}
 };
 function filterDescription() {
@@ -239,5 +248,120 @@ $('#pdf-button').onclick=()=>{
   }catch(error){toast('No se pudo generar el PDF: '+error.message);}
   finally { $('#dashboard-view').hidden = dashboardWasHidden; }
 };
+function canEditCloud() { return cloudLoaded && !cloudBusy && ['admin','coordinator'].includes(cloudStore?.role); }
+function applyAccess() {
+  if (!SUPABASE_CONFIG.enabled) return;
+  const canEdit = canEditCloud();
+  document.querySelectorAll('#add-button,#restore-button,[data-edit],[data-delete],#editor-form button[type="submit"],#confirm-accept').forEach(button => button.disabled = !canEdit);
+  $('#refresh-cloud').disabled = cloudBusy;
+}
+function setAuthMessage(message) { $('#auth-message').textContent = message; }
+function clearCloudSession() {
+  cloudSession = null; cloudStore = null; cloudLoaded = false; cloudBusy = false;
+  data = {version:1,currency:'USD',schools:[],categories:[],resources:[]};
+  document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
+  document.body.classList.add('cloud-locked');
+  $('#auth-screen').hidden = false; $('#cloud-toolbar').hidden = true;
+  $('#login-form').hidden = false; $('#auth-signout').hidden = true;
+  $('#retry-cloud').hidden = true; $('#login-form [name="password"]').value = '';
+  document.querySelector('.local-status').textContent = 'Sesión cerrada';
+  render();
+}
+async function loadCloud() {
+  if (cloudBusy || !cloudSession || !cloudStore) return;
+  const store = cloudStore;
+  cloudBusy = true; applyAccess(); $('#refresh-cloud').textContent='Actualizando…';
+  try {
+    const inventory = await store.load();
+    if (cloudStore !== store) return;
+    data = inventory; cloudLoaded = true; demo = false;
+    document.body.classList.remove('cloud-locked'); $('#auth-screen').hidden = true;
+    $('#cloud-toolbar').hidden = false;
+    $('#cloud-user').textContent = cloudSession.user.email;
+    $('#cloud-state').textContent = `${store.role === 'viewer' ? 'Solo lectura' : 'Edición autorizada'} · Actualizado ${new Date().toLocaleTimeString('es-AR')}`;
+    document.querySelector('.local-status').textContent = 'Inventario compartido · Supabase';
+    document.querySelector('.sidebar-bottom small').textContent = 'Conectado a Supabase';
+    $('#storage-warning').hidden = true;
+    render();
+  } catch(error) {
+    if (cloudStore !== store) return;
+    cloudLoaded = false;
+    document.body.classList.add('cloud-locked'); $('#auth-screen').hidden = false;
+    $('#login-form').hidden = true; $('#retry-cloud').hidden = false; $('#auth-signout').hidden = false;
+    setAuthMessage(error.message);
+  } finally {
+    if (cloudStore === store) { cloudBusy = false; $('#refresh-cloud').textContent='↻ Actualizar datos'; applyAccess(); }
+  }
+}
+async function saveCloud(next) {
+  if (!canEditCloud()) { toast('No se guardó: actualizá el inventario o verificá tus permisos.'); return false; }
+  try { validateData(next); } catch(error) { toast(error.message); return false; }
+  const store=cloudStore;
+  cloudBusy=true; applyAccess(); $('#cloud-state').textContent='Guardando en Supabase…';
+  try {
+    await store.save(next);
+    if (cloudStore !== store) return false;
+    data=next; $('#cloud-state').textContent='Guardado en Supabase · USD';
+    return true;
+  } catch(error) {
+    if (cloudStore !== store) return false;
+    cloudLoaded=false;
+    $('#cloud-state').textContent='Guardado no confirmado · Actualizá los datos';
+    $('#form-error').textContent=error.message; toast('No se guardó: '+error.message);
+    return false;
+  } finally { if (cloudStore === store) { cloudBusy=false; applyAccess(); } }
+}
+async function initializeCloud() {
+  document.body.classList.remove('cloud-start');
+  if (!SUPABASE_CONFIG.enabled) { $('#auth-screen').hidden=true; return; }
+  clearCloudSession();
+  if (!window.supabase) {
+    setAuthMessage('No se pudo cargar la conexión a Supabase. Revisá internet y recargá la página.');
+    $('#login-form button').disabled=true;return;
+  }
+  cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey);
+  cloudClient.auth.onAuthStateChange((event,session)=>{
+    if (event==='SIGNED_OUT') { clearCloudSession(); setAuthMessage('Ingresá con tu cuenta autorizada.'); }
+    if (session && cloudSession?.user.id===session.user.id) cloudSession=session;
+    else if (event==='SIGNED_IN' && session) setTimeout(async()=>{
+      cloudSession=session; cloudStore=new CloudInventory(cloudClient); $('#login-form').hidden=true;
+      setAuthMessage('Cargando inventario…'); await loadCloud();
+    },0);
+  });
+  const {data:sessionData,error}=await cloudClient.auth.getSession();
+  if(error){setAuthMessage(cloudError(error).message);return;}
+  if(sessionData.session){cloudSession=sessionData.session;cloudStore=new CloudInventory(cloudClient);$('#login-form').hidden=true;await loadCloud();}
+  else setAuthMessage('Ingresá con tu cuenta autorizada.');
+  $('#login-form').onsubmit=async event=>{
+    event.preventDefault(); const button=$('#login-form button');button.disabled=true;setAuthMessage('Ingresando…');
+    try {
+      const values=new FormData(event.target);
+      const {error}=await cloudClient.auth.signInWithPassword({email:values.get('email').trim(),password:values.get('password')});
+      if(error)throw cloudError(error);
+      $('#login-form [name="password"]').value='';
+    }catch(error){setAuthMessage(error.message);}finally{button.disabled=false;}
+  };
+  const signOut=async()=>{
+    const {error}=await cloudClient.auth.signOut({scope:'local'});
+    if(error){toast(cloudError(error).message);return;}
+    clearCloudSession();setAuthMessage('Sesión cerrada.');
+  };
+  $('#signout-button').onclick=signOut; $('#auth-signout').onclick=signOut;
+  $('#refresh-cloud').onclick=loadCloud; $('#retry-cloud').onclick=loadCloud;
+  $('#local-backup').onclick=()=>{
+    try {
+      const local=localStorage.getItem(KEY);
+      if(!local){toast('No hay un inventario local anterior en este navegador.');return;}
+      download(local,'application/json',`nexo-inventario-local-${dateStamp()}.json`);
+      toast('Respaldo local descargado. Usá “Restaurar respaldo” para importarlo al inventario compartido.');
+    }catch{toast('No se pudo leer el inventario local anterior.');}
+  };
+  const refreshWhenIdle=()=>{
+    if(!document.hidden && cloudLoaded && !cloudBusy && !document.querySelector('dialog[open]'))loadCloud();
+  };
+  setInterval(refreshWhenIdle,30000); window.addEventListener('focus',refreshWhenIdle);
+}
 // Esperar a los scripts defer antes de dibujar con Chart.js.
-if(document.readyState==='complete')setView();else window.addEventListener('load',setView,{once:true});
+$('#login-form').onsubmit=event=>event.preventDefault();
+function boot() { setView(); initializeCloud(); }
+if(document.readyState==='complete')boot();else window.addEventListener('load',boot,{once:true});
