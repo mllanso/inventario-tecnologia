@@ -1,6 +1,26 @@
 export const YEAR = 2026;
 export const STATES = ['Activo', 'En Reparación', 'Obsoleto'];
 export const USES = ['Alta', 'Regular', 'Baja', 'Nula'];
+export const PLAN_CHOICES = [
+  {id:'same',name:'Misma cantidad'}, {id:'more',name:'Mayor cantidad'},
+  {id:'less',name:'Menor cantidad'}, {id:'discontinue',name:'Descontinuar'}
+];
+export function validatePlans(plans, resources) {
+  if (!Array.isArray(plans) || plans.length > 5000) throw Error('La planificación 2027 no tiene un formato válido.');
+  const ids = new Set();
+  for (const p of plans) {
+    if (!p || !resources.some(r=>r.id === p.resourceId) || ids.has(p.resourceId)) throw Error('La planificación tiene recursos inexistentes o repetidos.');
+    ids.add(p.resourceId);
+    if (!Number.isInteger(p.baselineQuantity) || p.baselineQuantity < 1 || p.baselineQuantity > 1000000 || !Number.isInteger(p.quantity) || p.quantity < 0 || p.quantity > 1000000 || typeof p.notes !== 'string' || p.notes.length > 500) throw Error('Revisá las cantidades y observaciones de la planificación 2027.');
+    const valid = p.choice === 'same' ? p.quantity === p.baselineQuantity : p.choice === 'more' ? p.quantity > p.baselineQuantity : p.choice === 'less' ? p.quantity > 0 && p.quantity < p.baselineQuantity : p.choice === 'discontinue' && p.quantity === 0;
+    if (!valid) throw Error('La cantidad 2027 debe respetar la decisión: igual, mayor, menor (al menos 1), o 0 para descontinuar.');
+  }
+  return plans;
+}
+export function makePlan(resource, choice, quantity, notes = '') {
+  const plan = {resourceId:resource.id,baselineQuantity:resource.quantity,choice,quantity:choice === 'same' ? resource.quantity : choice === 'discontinue' ? 0 : quantity,notes:notes.trim()};
+  validatePlans([plan],[resource]);return plan;
+}
 export function nextLotCode(resources) {
   let highest = 0n;
   let width = 4;
@@ -50,6 +70,7 @@ export function validateData(data) {
   }
   if (!Number.isSafeInteger(priceSummary(data.resources).totalCents)) throw Error('El valor del inventario supera el máximo permitido.');
   if (new Set(data.resources.map(r => r.code.trim().toLowerCase())).size !== data.resources.length) throw Error('Hay códigos de inventario repetidos.');
+  if (data.plans2027 !== undefined) validatePlans(data.plans2027, data.resources);
   return data;
 }
 // La recomendación usa el inventario completo para que un filtro no invente faltantes.

@@ -4,11 +4,11 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#112b2a"><meta name="description" content="Gestión de inventario y planificación tecnológica escolar, ciclo 2026.">
   <title>Nexo · Coordinación de Tecnología</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=20261030-plan2027">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@3.0.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
-  <script type="module" src="js/app.js?v=20261030-lotes"></script>
+  <script type="module" src="js/app.js?v=20261030-plan2027"></script>
 </head>
 <body class="cloud-start">
   <section id="auth-screen" class="auth-screen">
@@ -28,6 +28,7 @@
       <a href="#resources" data-view="resources"><span>▦</span> Gestión de recursos</a>
       <a href="#schools" data-view="schools"><span>⌂</span> Gestión de colegios</a>
       <a href="#categories" data-view="categories"><span>◇</span> Categorías</a>
+      <a href="#planning2027" data-view="planning2027"><span>↗</span> Planificación 2027</a>
     </nav>
     <div class="cycle"><span class="live-dot"></span> Ciclo de planificación <b>2026</b><p>Datos que conectan.<br>Decisiones que transforman.</p></div>
     <div class="sidebar-bottom"><span class="avatar">CT</span><div>Coordinación TIC<small>Almacenamiento local</small></div></div>
@@ -56,6 +57,18 @@
       </div>
       <section class="panel inventory-panel" id="inventory-view"><div class="panel-heading"><div><p class="eyebrow">DETALLE DEL INVENTARIO</p><h2 id="inventory-title">Recursos tecnológicos</h2></div><button class="button secondary" id="csv-button">↓ Exportar CSV</button></div><div class="table-scroll"><table><thead><tr><th>Recurso / Código</th><th>Colegio</th><th>Categoría</th><th>Estado</th><th>Uso 2026</th><th>Unidades</th><th>Precio unitario (USD)</th><th>Total (USD)</th><th>Edad</th><th>Decisión</th><th>Acciones</th></tr></thead><tbody id="resource-rows"></tbody></table></div><div class="table-footer"><span id="table-count"></span><span>La exportación respeta los filtros activos</span></div></section>
       <section id="entities-view" hidden><div class="entity-grid" id="entity-list"></div></section>
+      <section id="planning-view" hidden>
+        <div class="planning-intro"><div><p class="eyebrow">DE 2026 A 2027</p><h2>Qué necesitamos para el próximo ciclo</h2><p>Todos los recursos cargados en el inventario 2026, con su cantidad actual. Indicá la cantidad total necesaria para 2027; no solo las unidades adicionales.</p></div><span class="year-chip">2026 → 2027</span></div>
+        <div id="planning-migration" class="notice" hidden>Falta activar la planificación en Supabase. Ejecutá supabase/planning-2027.sql en SQL Editor y pulsá Actualizar datos.</div>
+        <div class="kpi-grid" id="planning-metrics"></div>
+        <section class="panel inventory-panel"><div class="panel-heading"><div><p class="eyebrow">COMPARATIVA POR RECURSO</p><h2>Necesidades 2027</h2></div><button class="button secondary" id="planning-csv">↓ Exportar CSV 2027</button></div>
+          <div class="planning-controls"><label>Filtrar por decisión<select id="planning-decision"><option value="all">Todas las decisiones</option><option value="pending">Pendientes</option><option value="review">Revisar cantidad base</option><option value="same">Misma cantidad</option><option value="more">Mayor cantidad</option><option value="less">Menor cantidad</option><option value="discontinue">Descontinuar</option></select></label><div><span id="planning-dirty" role="status"></span><button class="text-button" id="planning-discard" hidden>Descartar cambios</button><button class="button primary" id="planning-save">Guardar planificación</button></div></div>
+          <p class="planning-hint">Misma cantidad conserva las unidades de 2026. Descontinuar asigna 0. Mayor y Menor requieren completar la cantidad. Cambiar la planificación no modifica el inventario 2026.</p>
+          <p id="planning-error" class="error" role="alert"></p>
+          <div class="table-scroll"><table class="planning-table"><thead><tr><th>Recurso / Código 2026</th><th>Colegio / Categoría</th><th>Cantidad 2026</th><th>Necesidad 2027</th><th>Cantidad 2027</th><th>Diferencia</th><th>Observaciones</th><th>Seguimiento</th></tr></thead><tbody id="planning-rows"></tbody></table></div>
+          <div class="table-footer"><span id="planning-count"></span><span>Los filtros mantienen los cambios que todavía no guardaste</span></div>
+        </section>
+      </section>
       <footer class="footer"><span>Nexo · Coordinación de Tecnología</span><div><button class="text-button" id="backup-button">Descargar respaldo</button><button class="text-button" id="restore-button">Restaurar respaldo</button></div><span>Planificación con perspectiva · 2026</span></footer>
     </main>
   </div>
