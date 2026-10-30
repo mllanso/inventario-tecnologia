@@ -1,6 +1,6 @@
 import { SUPABASE_CONFIG } from './config.js';
 import { CloudInventory, cloudError } from './cloud.js';
-import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice } from './domain.js';
+import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js';
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -142,6 +142,7 @@ function openEditor(key,id) {
   if (SUPABASE_CONFIG.enabled && !canEditCloud()) { toast('Necesitás acceso de edición y el inventario actualizado.'); return; }
   if (key==='resources' && (!data.schools.length || !data.categories.length)) { toast('Primero registrá al menos un colegio y una categoría.'); return; }
   const item = id ? data[key].find(x=>x.id===id) : {};
+  if (key === 'resources' && !id) item.code = nextLotCode(data.resources);
   editing = {key,id};
   $('#editor-title').textContent=`${id?'Editar':'Crear'} ${key==='resources'?'recurso':key==='schools'?'colegio':'categoría'}`;
   const field=(name,label,value,type='text',extra='')=>`<label>${label}<input name="${name}" type="${type}" value="${escapeHTML(value??'')}" required ${extra}></label>`;
@@ -151,6 +152,7 @@ function openEditor(key,id) {
     `${field('name',key==='schools'?'Nombre del colegio':'Nombre de la categoría',item.name,'text','maxlength="120"')}${key==='schools'?'<label>Zona o ubicación<input name="location" maxlength="160" value="'+escapeHTML(item.location)+'"></label>':''}`;
   $('#form-error').textContent=''; $('#editor-form button[type="submit"]').hidden=false; $('#editor').showModal();
   if (key === 'resources') {
+    if (!id) $('#editor-form [name="code"]').insertAdjacentHTML('afterend', `<small>${item.code ? 'Siguiente código sugerido según todo el inventario. Podés modificarlo.' : 'La secuencia numérica alcanzó el límite de longitud. Ingresá otro código único.'}</small>`);
     $('#form-fields').insertAdjacentHTML('beforeend', `<label>Precio unitario (USD)<input name="unitPrice" type="number" min="0" max="10000000" step="0.01" inputmode="decimal" value="${escapeHTML(item.unitPrice ?? '')}" placeholder="Sin precio"><small>Opcional. Hasta dos decimales; dejalo vacío si aún no lo conocés.</small></label><label>Total del artículo (USD)<output id="resource-total" aria-live="polite"></output><small>Precio unitario × cantidad de unidades.</small></label>`);
     const updateTotal = () => {
       const price = $('#editor-form [name="unitPrice"]').value;

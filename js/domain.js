@@ -1,6 +1,19 @@
 export const YEAR = 2026;
 export const STATES = ['Activo', 'En Reparación', 'Obsoleto'];
 export const USES = ['Alta', 'Regular', 'Baja', 'Nula'];
+export function nextLotCode(resources) {
+  let highest = 0n;
+  let width = 4;
+  for (const resource of resources) {
+    const code = String(resource.code ?? '').trim();
+    if (!/^\d+$/.test(code)) continue;
+    const number = BigInt(code);
+    if (number > highest) highest = number;
+    width = Math.max(width, code.length);
+  }
+  const next = (highest + 1n).toString().padStart(width, '0');
+  return next.length <= 60 ? next : '';
+}
 export function validUnitPrice(price) {
   return typeof price === 'number' && Number.isFinite(price) && price >= 0 && price <= 10000000 && Math.abs(price * 100 - Math.round(price * 100)) < 0.000001;
 }
