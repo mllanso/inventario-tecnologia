@@ -1,9 +1,9 @@
-import { PLAN_CHOICES, makePlan, validateData, validatePlans, createCSV } from './domain.js?v=20261030-plan2027';
+import { PLAN_CHOICES, makePlan, validateData, validatePlans, createCSV } from './domain.js?v=20261102-business';
 const $ = selector => document.querySelector(selector);
 const html = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export class PlanningView {
-  constructor({getData,canEdit,save,refresh,toast,ask,download,cloudEnabled}) {
-    Object.assign(this,{getData,canEdit,save,refresh,toast,ask,download,cloudEnabled});
+  constructor({getData,canEdit,save,refresh,toast,ask,download,cloudEnabled,createRequest}) {
+    Object.assign(this,{getData,canEdit,save,refresh,toast,ask,download,cloudEnabled,createRequest});
     this.drafts=new Map();this.rows=[];
     $('#planning-decision').onchange=()=>this.render(this.rows);
     $('#planning-save').onclick=()=>this.saveChanges();
@@ -55,6 +55,8 @@ export class PlanningView {
       };
       const review=row.querySelector('[data-plan-review]');
       if(review)review.onclick=()=>{this.edit(resource,'choice',this.planFor(resource).choice);this.render(this.rows);};
+      const plan=this.planFor(resource);const extra=Number(plan?.quantity)-resource.quantity;
+      if(this.createRequest&&data.businessVersion===1&&extra>0){const status=row.querySelector('[data-plan-status]');status.insertAdjacentHTML('beforeend','<button type="button" class="text-button" data-plan-request>Solicitar '+extra+' unidades</button>');status.querySelector('[data-plan-request]').onclick=()=>this.createRequest(resource,extra);}
     });
     this.updateMetrics();this.applyAccess();
   }

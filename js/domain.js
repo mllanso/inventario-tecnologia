@@ -11,7 +11,7 @@ export function validatePlans(plans, resources) {
   for (const p of plans) {
     if (!p || !resources.some(r=>r.id === p.resourceId) || ids.has(p.resourceId)) throw Error('La planificación tiene recursos inexistentes o repetidos.');
     ids.add(p.resourceId);
-    if (!Number.isInteger(p.baselineQuantity) || p.baselineQuantity < 1 || p.baselineQuantity > 1000000 || !Number.isInteger(p.quantity) || p.quantity < 0 || p.quantity > 1000000 || typeof p.notes !== 'string' || p.notes.length > 500) throw Error('Revisá las cantidades y observaciones de la planificación 2027.');
+    if (!Number.isInteger(p.baselineQuantity) || p.baselineQuantity < 0 || p.baselineQuantity > 1000000 || !Number.isInteger(p.quantity) || p.quantity < 0 || p.quantity > 1000000 || typeof p.notes !== 'string' || p.notes.length > 500) throw Error('Revisá las cantidades y observaciones de la planificación 2027.');
     const valid = p.choice === 'same' ? p.quantity === p.baselineQuantity : p.choice === 'more' ? p.quantity > p.baselineQuantity : p.choice === 'less' ? p.quantity > 0 && p.quantity < p.baselineQuantity : p.choice === 'discontinue' && p.quantity === 0;
     if (!valid) throw Error('La cantidad 2027 debe respetar la decisión: igual, mayor, menor (al menos 1), o 0 para descontinuar.');
   }
@@ -65,8 +65,9 @@ export function validateData(data) {
   for (const key of ['schools','categories']) if (new Set(data[key].map(item=>item.name.trim().toLocaleLowerCase('es'))).size !== data[key].length) throw Error('Hay nombres de colegios o categorías repetidos.');
   if (data.schools.some(s=>s.location != null && (typeof s.location !== 'string' || s.location.length > 160))) throw Error('La ubicación del colegio no es válida.');
   for (const r of data.resources) {
+    if (r.trafficStatus !== undefined && !['available','in_progress','required','unclassified'].includes(r.trafficStatus)) throw Error('Semáforo inválido.');
     if (r.unitPrice != null && !validUnitPrice(r.unitPrice)) throw Error('El precio unitario debe ser un número entre 0 y 10.000.000, con hasta dos decimales.');
-    if (!data.schools.some(s => s.id === r.schoolId) || !data.categories.some(c => c.id === r.categoryId) || !STATES.includes(r.state) || !USES.includes(r.use) || !Number.isInteger(r.quantity) || r.quantity < 1 || r.quantity > 1000000 || !Number.isInteger(r.target) || r.target < 1 || r.target > 1000000 || !Number.isInteger(r.year) || r.year < 1980 || r.year > YEAR || typeof r.code !== 'string' || !r.code.trim() || r.code.length > 60) throw Error('Un recurso tiene datos o relaciones inválidos.');
+    if (!data.schools.some(s => s.id === r.schoolId) || !data.categories.some(c => c.id === r.categoryId) || !STATES.includes(r.state) || !USES.includes(r.use) || !Number.isInteger(r.quantity) || r.quantity < (data.businessVersion===1?0:1) || r.quantity > 1000000 || !Number.isInteger(r.target) || r.target < 1 || r.target > 1000000 || !Number.isInteger(r.year) || r.year < 1980 || r.year > YEAR || typeof r.code !== 'string' || !r.code.trim() || r.code.length > 60) throw Error('Un recurso tiene datos o relaciones inválidos.');
   }
   if (!Number.isSafeInteger(priceSummary(data.resources).totalCents)) throw Error('El valor del inventario supera el máximo permitido.');
   if (new Set(data.resources.map(r => r.code.trim().toLowerCase())).size !== data.resources.length) throw Error('Hay códigos de inventario repetidos.');
@@ -88,7 +89,7 @@ export function filterResources(data, filters) {
     const school = data.schools.find(s => s.id === r.schoolId)?.name || '';
     const category = data.categories.find(c => c.id === r.categoryId)?.name || '';
     return `${r.name} ${r.code} ${school} ${category}`.toLocaleLowerCase('es').includes(q) &&
-      [['schools', r.schoolId], ['categories', r.categoryId], ['states', r.state], ['uses', r.use]].every(([key, value]) => !filters[key].length || filters[key].includes(value));
+      [['schools', r.schoolId], ['categories', r.categoryId], ['states', r.state], ['uses', r.use], ['traffic',r.trafficStatus||'unclassified']].every(([key, value]) => !filters[key]?.length || filters[key].includes(value));
   });
 }
 export function csvCell(value) {

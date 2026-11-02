@@ -1,7 +1,9 @@
-import { PlanningView } from './planning.js?v=20261030-plan2027';
+import { BusinessView } from './business.js?v=20261102-business';
+import { TRAFFIC } from './business-domain.js?v=20261102-business';
+import { PlanningView } from './planning.js?v=20261102-business';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261030-plan2027';
-import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261030-plan2027';
+import { CloudInventory, cloudError } from './cloud.js?v=20261102-business';
+import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261102-business';
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -18,9 +20,10 @@ try {
   data = {version:1, schools:[], categories:[], resources:[]};
   warning('No se pudo leer el almacenamiento. No se sobrescribirán los datos existentes. Descargá un respaldo si corresponde y restaurá un archivo válido para recuperar el acceso.');
 }
-const filters = { search:'', schools:[], categories:[], states:[], uses:[] };
+const filters = { search:'', schools:[], categories:[], states:[], uses:[],traffic:[] };
 let currentView = 'dashboard', charts = {}, editing = null, toastTimer;
-const planner = new PlanningView({getData:()=>data, canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():true, save:persist, refresh:render, toast, ask, download, cloudEnabled:SUPABASE_CONFIG.enabled});
+const planner = new PlanningView({getData:()=>data, canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():true, save:persist, refresh:render, toast, ask, download, cloudEnabled:SUPABASE_CONFIG.enabled,createRequest:(resource,quantity)=>{if(planner.hasChanges()){toast('Guardá primero la planificación.');return;}business.newRequest(resource.groupId||'',{schoolId:resource.schoolId,quantity,name:resource.name});}});
+const business = new BusinessView({getData:()=>data,getBusiness:()=>cloudStore?.business,canEdit:()=>SUPABASE_CONFIG.enabled?(cloudLoaded&&['admin','coordinator'].includes(cloudStore?.role)):true,userId:()=>cloudSession?.user.id,run:runBusinessAction,fetchReport:fetchBusinessReport,editResource:id=>openEditor('resources',id),toast,download});
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => $('#toast').hidden = true, 5000); }
 async function persist(next, recovery = false) {
   if (SUPABASE_CONFIG.enabled) return saveCloud(next);
@@ -60,10 +63,10 @@ function renderFilters() {
   filters.categories = filters.categories.filter(id => data.categories.some(c => c.id === id));
   multiFilter('schools','Colegio',data.schools,'Todos los colegios');
   multiFilter('categories','Categoría',data.categories,'Todas las categorías');
-  multiFilter('states','Estado',STATES.map(x => ({id:x,name:x})),'Todos los estados');
+  multiFilter('states','Estado físico',STATES.map(x => ({id:x,name:x})),'Todos los estados');
   multiFilter('uses','Uso en 2026',USES.map(x => ({id:x,name:x})),'Todas las frecuencias');
 }
-const titles = {dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Gestión de colegios','Cada institución, conectada con sus recursos.'],categories:['Categorías de recursos','Una estructura clara para organizar la tecnología.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.']};
+const titles = {dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Gestión de colegios','Cada institución, conectada con sus recursos.'],categories:['Categorías de recursos','Una estructura clara para organizar la tecnología.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
 function setView() {
   currentView = location.hash.slice(1);
   if (!titles[currentView]) currentView = 'dashboard';
@@ -72,11 +75,15 @@ function setView() {
   document.querySelectorAll('[data-view]').forEach(a => { a.classList.toggle('active',a.dataset.view === currentView); if (a.dataset.view === currentView) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   const entity = ['schools','categories'].includes(currentView);
   const planning = currentView === 'planning2027';
+  const module = ['requests','transfers','reports'].includes(currentView);
+  $('#business-view').hidden=!module;
+  $('#traffic-panel').hidden=entity||module;
+  $('#grouped-resources').hidden=currentView!=='resources';
   $('#planning-view').hidden = !planning;
-  $('#add-button').hidden = planning;
-  $('#filters').hidden = entity; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = entity || planning; $('#entities-view').hidden = !entity;
-  $('#pricing-summary').hidden = entity || planning;
-  $('#pdf-button').hidden = entity || planning;
+  $('#add-button').hidden = planning||module;
+  $('#filters').hidden = entity||module; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = entity || planning||module||currentView==='resources'; $('#entities-view').hidden = !entity;
+  $('#pricing-summary').hidden = entity || planning||module||cloudStore?.role==='requester';
+  $('#pdf-button').hidden = entity || planning||module;
   $('#add-button').textContent = currentView === 'schools' ? '＋ Nuevo colegio' : currentView === 'categories' ? '＋ Nueva categoría' : '＋ Nuevo recurso';
   render();
 }
@@ -89,6 +96,9 @@ function renderContent() {
   $('#table-count').textContent = `${rows.length} lotes registrados · ${total} unidades`;
   const prices = priceSummary(rows);
   $('#pricing-summary').innerHTML = `<div><p class="eyebrow">VALOR DEL INVENTARIO FILTRADO</p><strong>${money(prices.totalCents)}</strong><small>${prices.missingLots ? 'Total parcial: faltan precios por completar.' : 'Total de los artículos de la selección.'}</small></div><div><span>Unidades con precio</span><b>${prices.pricedUnits}</b></div><div><span>Lotes sin precio</span><b>${prices.missingLots}</b></div>`;
+  business.renderTraffic(filterResources(data,{...filters,traffic:[]}),filters.traffic,id=>{filters.traffic=filters.traffic.includes(id)?filters.traffic.filter(x=>x!==id):[...filters.traffic,id];renderContent();});
+  if(currentView==='resources')business.renderGroups(rows);
+  if(['requests','transfers','reports'].includes(currentView))business.render(currentView);
   renderTable(rows);
   if (currentView === 'dashboard') renderDashboard(rows);
   if (['schools','categories'].includes(currentView)) renderEntities();
@@ -148,6 +158,7 @@ function openEditor(key,id) {
   if (SUPABASE_CONFIG.enabled && !canEditCloud()) { toast('Necesitás acceso de edición y el inventario actualizado.'); return; }
   if (key==='resources' && (!data.schools.length || !data.categories.length)) { toast('Primero registrá al menos un colegio y una categoría.'); return; }
   const item = id ? data[key].find(x=>x.id===id) : {};
+
   if (key === 'resources' && !id) item.code = nextLotCode(data.resources);
   editing = {key,id};
   $('#editor-title').textContent=`${id?'Editar':'Crear'} ${key==='resources'?'recurso':key==='schools'?'colegio':'categoría'}`;
@@ -156,14 +167,21 @@ function openEditor(key,id) {
   $('#form-fields').innerHTML = key==='resources' ?
     `${field('name','Nombre del recurso',item.name,'text','maxlength="120"')}${field('code','Código único del lote',item.code,'text','maxlength="60"')}${select('schoolId','Colegio',data.schools,item.schoolId)}${select('categoryId','Categoría',data.categories,item.categoryId)}${select('state','Estado',STATES.map(x=>({id:x,name:x})),item.state)}${select('use','Frecuencia de uso en 2026',USES.map(x=>({id:x,name:x})),item.use||'Regular')}${field('year','Año de adquisición',item.year??YEAR,'number',`min="1980" max="${YEAR}" step="1"`)}${field('quantity','Cantidad de unidades del lote',item.quantity??1,'number','min="1" max="1000000" step="1"')}${field('target','Objetivo operativo del colegio y categoría',item.target??1,'number','min="1" max="1000000" step="1"')}<div class="full"><small>El objetivo indica cuántas unidades operativas se necesitan en esta categoría y colegio. Si existen varios lotes, se usa el objetivo máximo. Edad calculada al cierre de 2026.</small></div>` :
     `${field('name',key==='schools'?'Nombre del colegio':'Nombre de la categoría',item.name,'text','maxlength="120"')}${key==='schools'?'<label>Zona o ubicación<input name="location" maxlength="160" value="'+escapeHTML(item.location)+'"></label>':''}`;
+  if(key==='schools'&&data.businessVersion===1)$('#form-fields').insertAdjacentHTML('beforeend','<label>Centro de costo (opcional)<input name="costCenter" maxlength="80" value="'+escapeHTML(item.costCenter||'')+'"></label>');
   $('#form-error').textContent=''; $('#editor-form button[type="submit"]').hidden=false; $('#editor').showModal();
   if (key === 'resources') {
+    if(data.businessVersion===1){
+      $('#form-fields').insertAdjacentHTML('beforeend',select('groupId','Recurso general / Agrupación',[...(!id?[{id:'',name:'Crear una agrupación nueva'}]:[]),...(data.groups||[])],item.groupId)+select('trafficStatus','Semáforo',TRAFFIC.map(t=>({id:t.id,name:t.legend})),item.trafficStatus||'unclassified'));
+      $('#editor-form [name="groupId"]').onchange=event=>{const g=data.groups.find(g=>g.id===event.target.value);if(g){$('#editor-form [name="categoryId"]').value=g.categoryId;}};
+      if(item.contractId){const selector=$('#editor-form [name="groupId"]');selector.disabled=true;selector.insertAdjacentHTML('afterend','<small>Para cambiar la agrupación con contratos, usá Unir agrupaciones.</small>');}
+      $('#editor-form [name="quantity"]').min='0';
+    }
     if (!id) $('#editor-form [name="code"]').insertAdjacentHTML('afterend', `<small>${item.code ? 'Siguiente código sugerido según todo el inventario. Podés modificarlo.' : 'La secuencia numérica alcanzó el límite de longitud. Ingresá otro código único.'}</small>`);
     $('#form-fields').insertAdjacentHTML('beforeend', `<label>Precio unitario (USD)<input name="unitPrice" type="number" min="0" max="10000000" step="0.01" inputmode="decimal" value="${escapeHTML(item.unitPrice ?? '')}" placeholder="Sin precio"><small>Opcional. Hasta dos decimales; dejalo vacío si aún no lo conocés.</small></label><label>Total del artículo (USD)<output id="resource-total" aria-live="polite"></output><small>Precio unitario × cantidad de unidades.</small></label>`);
     const updateTotal = () => {
       const price = $('#editor-form [name="unitPrice"]').value;
       const quantity = Number($('#editor-form [name="quantity"]').value);
-      $('#resource-total').textContent = price === '' ? 'Sin precio' : validUnitPrice(Number(price)) && Number.isInteger(quantity) && quantity > 0 && quantity <= 1000000 ? money(resourceTotalCents({unitPrice:Number(price),quantity})) : 'Revisá el precio y la cantidad';
+      $('#resource-total').textContent = price === '' ? 'Sin precio' : validUnitPrice(Number(price)) && Number.isInteger(quantity) && quantity >= 0 && quantity <= 1000000 ? money(resourceTotalCents({unitPrice:Number(price),quantity})) : 'Revisá el precio y la cantidad';
     };
     $('#editor-form [name="unitPrice"]').oninput = updateTotal;
     $('#editor-form [name="quantity"]').oninput = updateTotal;
@@ -180,12 +198,13 @@ $('#editor-form').onsubmit=async event=>{
   if (!values.name || (key==='resources' && !values.code)) { $('#form-error').textContent='Completá los campos sin usar solamente espacios.';return; }
   if (key!=='resources' && data[key].some(x=>x.id!==id && x.name.toLocaleLowerCase('es')===values.name.toLocaleLowerCase('es'))) { $('#form-error').textContent='Ya existe un registro con ese nombre.';return; }
   if (key==='resources') {
+    if(values.groupId==='')delete values.groupId;
     ['year','quantity','target'].forEach(k=>values[k]=Number(values[k]));
     values.unitPrice = values.unitPrice === '' ? null : Number(values.unitPrice);
     if (values.unitPrice !== null && !validUnitPrice(values.unitPrice)) { $('#form-error').textContent='Ingresá un precio entre 0 y 10.000.000 USD, con hasta dos decimales.'; return; }
     if(data.resources.some(r=>r.id!==id&&r.code.toLowerCase()===values.code.toLowerCase())) { $('#form-error').textContent='Ese código de inventario ya está registrado.';return; }
   }
-  const next=clone(); const record={...values,id:id||crypto.randomUUID()};
+  const next=clone(); const record={...(id?data[key].find(x=>x.id===id):{}),...values,id:id||crypto.randomUUID()};
   if(id) next[key][next[key].findIndex(x=>x.id===id)]=record; else next[key].push(record);
   if(await persist(next)) { $('#editor').close();render();toast(SUPABASE_CONFIG.enabled ? 'Cambios guardados en Supabase.' : 'Cambios guardados en este navegador.'); }
 };
@@ -197,15 +216,15 @@ function deleteRecord(key,id) {
 }
 $('#add-button').onclick=()=>openEditor(['schools','categories'].includes(currentView)?currentView:'resources');
 $('#search').oninput=event=>{filters.search=event.target.value;renderContent();};
-$('#clear-filters').onclick=()=>{Object.assign(filters,{search:'',schools:[],categories:[],states:[],uses:[]});$('#search').value='';render();};
+$('#clear-filters').onclick=()=>{Object.assign(filters,{search:'',schools:[],categories:[],states:[],uses:[],traffic:[]});$('#search').value='';render();};
 $('#show-rules').onclick=()=>$('#rules-dialog').showModal();
 $('#start-empty').onclick=()=>ask('Comenzar un inventario vacío','Se quitarán los datos de demostración y se guardará un inventario vacío en este navegador.',async()=>{if(await persist({version:1,schools:[],categories:[],resources:[]})){render();toast('Inventario listo. Comenzá registrando colegios y categorías.');}});
 function download(content,type,filename) { const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000); }
 const dateStamp=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Argentina/Buenos_Aires'}).replaceAll('/','-');
 $('#csv-button').onclick=()=>{
   const rows=filterResources(data,filters);
-  const headers=['Código','Recurso','Colegio','Categoría','Estado','Uso 2026','Año de adquisición','Edad en 2026','Unidades','Precio unitario (USD)','Total (USD)','Objetivo operativo del grupo','Decisión','Motivo'];
-  download(createCSV([headers,...rows.map(r=>{const rec=recommendation(r,data.resources);return [r.code,r.name,data.schools.find(s=>s.id===r.schoolId).name,data.categories.find(c=>c.id===r.categoryId).name,r.state,r.use,r.year,YEAR-r.year,r.quantity,decimalPrice(r.unitPrice == null ? null : Math.round(r.unitPrice*100)),decimalPrice(resourceTotalCents(r)),Math.max(...data.resources.filter(x=>x.schoolId===r.schoolId&&x.categoryId===r.categoryId).map(x=>x.target)),rec.label,rec.reason];})]),'text/csv;charset=utf-8;',`nexo-inventario-${dateStamp()}.csv`);
+  const headers=['Código','Recurso','Colegio','Categoría','Estado físico','Semáforo','Agrupación','Uso 2026','Año de adquisición','Edad en 2026','Unidades','Precio unitario (USD)','Total (USD)','Objetivo operativo del grupo','Decisión','Motivo'];
+  download(createCSV([headers,...rows.map(r=>{const rec=recommendation(r,data.resources);return [r.code,r.name,data.schools.find(s=>s.id===r.schoolId).name,data.categories.find(c=>c.id===r.categoryId).name,r.state,TRAFFIC.find(t=>t.id===(r.trafficStatus||'unclassified'))?.legend,(data.groups||[]).find(g=>g.id===r.groupId)?.name||r.name,r.use,r.year,YEAR-r.year,r.quantity,decimalPrice(r.unitPrice == null ? null : Math.round(r.unitPrice*100)),decimalPrice(resourceTotalCents(r)),Math.max(...data.resources.filter(x=>x.schoolId===r.schoolId&&x.categoryId===r.categoryId).map(x=>x.target)),rec.label,rec.reason];})]),'text/csv;charset=utf-8;',`nexo-inventario-${dateStamp()}.csv`);
   toast(`CSV exportado: ${rows.length} lotes.`);
 };
 $('#backup-button').onclick=()=>download(JSON.stringify(data,null,2),'application/json',`nexo-respaldo-${dateStamp()}.json`);
@@ -216,11 +235,12 @@ $('#restore-file').onchange=async event=>{
     if(file.size>5000000) throw Error('El respaldo supera el máximo de 5 MB.');
     const restored=validateData(JSON.parse(await file.text()));
     restored.plans2027 ??= [];
+    if(data.businessVersion===1){restored.businessVersion=1;restored.changeReason='Restauración explícita de respaldo de inventario';}
     ask('Restaurar inventario',`Se reemplazarán el inventario y la planificación 2027 ${SUPABASE_CONFIG.enabled ? 'compartido de la coordinación' : 'de este navegador'} por ${restored.schools.length} colegios, ${restored.categories.length} categorías y ${restored.resources.length} lotes. Descargá un respaldo del inventario actual antes de confirmar si querés conservarlo.`,async()=>{if(await persist(restored,true)){render();toast('Inventario restaurado.');}});
   }catch(error){toast('No se pudo restaurar: '+error.message);}
 };
 function filterDescription() {
-  return [filters.search?`Búsqueda: ${filters.search}`:'',...['schools','categories','states','uses'].map(key=>filters[key].length?`${{schools:'Colegios',categories:'Categorías',states:'Estados',uses:'Uso'}[key]}: ${filters[key].map(id=>['schools','categories'].includes(key)?data[key].find(x=>x.id===id)?.name:id).join(', ')}`:'')].filter(Boolean).join(' | ') || 'Todo el inventario · sin filtros';
+  return [filters.search?`Búsqueda: ${filters.search}`:'',...['schools','categories','states','uses','traffic'].map(key=>filters[key].length?`${{schools:'Colegios',categories:'Categorías',states:'Estados',uses:'Uso',traffic:'Semáforo'}[key]}: ${filters[key].map(id=>['schools','categories'].includes(key)?data[key].find(x=>x.id===id)?.name:key==='traffic'?TRAFFIC.find(t=>t.id===id)?.legend:id).join(', ')}`:'')].filter(Boolean).join(' | ') || 'Todo el inventario · sin filtros';
 }
 $('#pdf-button').onclick=()=>{
   if(!window.jspdf || !window.Chart){toast('No se cargaron las librerías de PDF o gráficos. Revisá la conexión y recargá.');return;}
@@ -258,6 +278,23 @@ $('#pdf-button').onclick=()=>{
   finally { $('#dashboard-view').hidden = dashboardWasHidden; }
 };
 function canEditCloud() { return cloudLoaded && !cloudBusy && ['admin','coordinator'].includes(cloudStore?.role); }
+async function runBusinessAction(action,payload,key){
+  if(!cloudLoaded||cloudBusy||!cloudStore?.business)throw Error('Actualizá los datos y verificá la instalación de los módulos.');
+  if(planner.hasChanges())throw Error('Guardá o descartá la planificación antes de realizar operaciones de stock.');
+  const store=cloudStore;let knownFailure=false,committed=false;cloudBusy=true;applyAccess();
+  try{
+    const result=await store.call('nexo_business_action',{p_action:action,p_payload:payload,p_key:key});
+    if(result.error){knownFailure=true;throw cloudError(result.error);}
+    committed=true;const inventory=await store.load();if(cloudStore!==store)throw Error('La sesión cambió durante la operación.');
+    data=inventory;render();return result.data;
+  }catch(error){if((!knownFailure||committed)&&cloudStore===store){cloudLoaded=false;$('#cloud-state').textContent='Actualizá los datos antes de continuar';}throw error;}
+  finally{if(cloudStore===store){cloudBusy=false;applyAccess();}}
+}
+async function fetchBusinessReport(filters){
+  if(!cloudStore?.business)throw Error('Primero conectá los módulos de gestión.');
+  const {data:report,error}=await cloudStore.call('nexo_business_report',{p_from:filters.from,p_to:filters.to,p_school:filters.school||null,p_status:filters.status||null});
+  if(error)throw cloudError(error);return report;
+}
 function applyAccess() {
   planner.applyAccess();
   if (!SUPABASE_CONFIG.enabled) return;
@@ -290,7 +327,7 @@ async function loadCloud() {
     document.body.classList.remove('cloud-locked'); $('#auth-screen').hidden = true;
     $('#cloud-toolbar').hidden = false;
     $('#cloud-user').textContent = cloudSession.user.email;
-    $('#cloud-state').textContent = `${store.role === 'viewer' ? 'Solo lectura' : 'Edición autorizada'} · Actualizado ${new Date().toLocaleTimeString('es-AR')}`;
+    $('#cloud-state').textContent = `${store.role === 'requester' ? 'Portal de solicitudes' : store.role === 'viewer' ? 'Solo lectura' : 'Edición autorizada'} · Actualizado ${new Date().toLocaleTimeString('es-AR')}`;
     document.querySelector('.local-status').textContent = 'Inventario compartido · Supabase';
     document.querySelector('.sidebar-bottom small').textContent = 'Conectado a Supabase';
     $('#storage-warning').hidden = true;
@@ -333,17 +370,20 @@ async function initializeCloud() {
     $('#login-form button').disabled=true;return;
   }
   cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey);
+  const adoptSession=session=>{
+    if(cloudSession?.user.id===session.user.id&&cloudStore){cloudSession=session;if(!cloudLoaded&&!cloudBusy)loadCloud();return;}
+    cloudSession=session;cloudStore=new CloudInventory(cloudClient);cloudLoaded=false;cloudBusy=false;$('#login-form').hidden=true;$('#auth-signout').hidden=false;setAuthMessage('Cargando inventario…');loadCloud();
+  };
   cloudClient.auth.onAuthStateChange((event,session)=>{
     if (event==='SIGNED_OUT') { clearCloudSession(); setAuthMessage('Ingresá con tu cuenta autorizada.'); }
     if (session && cloudSession?.user.id===session.user.id) cloudSession=session;
     else if (event==='SIGNED_IN' && session) setTimeout(async()=>{
-      cloudSession=session; cloudStore=new CloudInventory(cloudClient); $('#login-form').hidden=true;
-      setAuthMessage('Cargando inventario…'); await loadCloud();
+      adoptSession(session);
     },0);
   });
   const {data:sessionData,error}=await cloudClient.auth.getSession();
   if(error){setAuthMessage(cloudError(error).message);return;}
-  if(sessionData.session){cloudSession=sessionData.session;cloudStore=new CloudInventory(cloudClient);$('#login-form').hidden=true;await loadCloud();}
+  if(sessionData.session){adoptSession(sessionData.session);}
   else setAuthMessage('Ingresá con tu cuenta autorizada.');
   $('#login-form').onsubmit=async event=>{
     event.preventDefault(); const button=$('#login-form button');button.disabled=true;setAuthMessage('Ingresando…');

@@ -4,11 +4,12 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#112b2a"><meta name="description" content="Gestión de inventario y planificación tecnológica escolar, ciclo 2026.">
   <title>Nexo · Coordinación de Tecnología</title>
-  <link rel="stylesheet" href="css/styles.css?v=20261030-plan2027">
+  <link rel="stylesheet" href="css/styles.css?v=20261102-business">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@3.0.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
-  <script type="module" src="js/app.js?v=20261030-plan2027"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script type="module" src="js/app.js?v=20261102-business"></script>
 </head>
 <body class="cloud-start">
   <section id="auth-screen" class="auth-screen">
@@ -29,6 +30,9 @@
       <a href="#schools" data-view="schools"><span>⌂</span> Gestión de colegios</a>
       <a href="#categories" data-view="categories"><span>◇</span> Categorías</a>
       <a href="#planning2027" data-view="planning2027"><span>↗</span> Planificación 2027</a>
+      <a href="#requests" data-view="requests"><span>＋</span> Solicitudes y compras</a>
+      <a href="#transfers" data-view="transfers"><span>⇄</span> Transferencias</a>
+      <a href="#reports" data-view="reports"><span>▥</span> Reportes financieros</a>
     </nav>
     <div class="cycle"><span class="live-dot"></span> Ciclo de planificación <b>2026</b><p>Datos que conectan.<br>Decisiones que transforman.</p></div>
     <div class="sidebar-bottom"><span class="avatar">CT</span><div>Coordinación TIC<small>Almacenamiento local</small></div></div>
@@ -46,6 +50,9 @@
         <div class="filter-foot"><span id="filter-count"></span><span>Selección múltiple · Actualización inmediata</span></div>
       </section>
       <section id="pricing-summary" class="pricing-summary" aria-label="Valorización del inventario"></section>
+      <section id="traffic-panel" class="traffic-grid" aria-label="Filtrar por semáforo"></section>
+      <section id="grouped-resources" hidden></section>
+      <section id="business-view" hidden></section>
       <div id="dashboard-view">
         <section class="kpi-grid" id="kpis" aria-label="Indicadores de inventario"></section>
         <section class="charts-grid">
@@ -73,6 +80,7 @@
     </main>
   </div>
   <dialog id="editor"><form id="editor-form"><div class="dialog-heading"><div><p class="eyebrow">GESTIÓN DEL INVENTARIO</p><h2 id="editor-title"></h2></div><button type="button" class="icon-button" data-close aria-label="Cerrar">×</button></div><div id="form-fields" class="form-grid"></div><p id="form-error" role="alert" class="error"></p><div class="dialog-actions"><button type="button" class="button secondary" data-close>Cancelar</button><button type="submit" class="button primary">Guardar cambios</button></div></form></dialog>
+  <dialog id="business-dialog"><form id="business-form"><div class="dialog-heading"><div><p class="eyebrow">GESTIÓN ENTRE COLEGIOS</p><h2 id="business-title"></h2></div><button type="button" class="icon-button" id="business-close" aria-label="Cerrar operación">×</button></div><div id="business-fields" class="form-grid"></div><p id="business-error" class="error" role="alert"></p><div class="dialog-actions"><button class="button primary" type="submit">Guardar</button></div></form></dialog>
   <dialog id="confirm-dialog"><div class="dialog-heading"><h2 id="confirm-title"></h2></div><p id="confirm-message"></p><div class="dialog-actions"><button class="button secondary" id="confirm-cancel">Cancelar</button><button class="button danger" id="confirm-accept">Confirmar</button></div></dialog>
   <dialog id="rules-dialog"><div class="dialog-heading"><h2>Criterios de decisión 2026</h2><button class="icon-button" data-close aria-label="Cerrar">×</button></div><p>Cada registro representa un lote de unidades con el mismo estado, uso y año de adquisición.</p><ol><li><b>Eliminar/Renovar:</b> estado obsoleto, uso nulo o antigüedad de 8 años o más. Tiene prioridad sobre los demás criterios.</li><li><b>Adquirir:</b> hay alta demanda en el colegio y categoría, y las unidades activas son inferiores al objetivo operativo. El objetivo del grupo es el máximo declarado en sus lotes; no se suman objetivos.</li><li><b>Mantener:</b> los demás recursos. Si están en reparación, se indica seguimiento prioritario.</li></ol><p>La disponibilidad se calcula sobre todo el inventario. Los filtros delimitan los registros que se muestran, sin cambiar la recomendación de cada recurso. Las tarjetas contabilizan unidades existentes, no cantidades a comprar. Las recomendaciones son orientativas y requieren evaluación técnica.</p></dialog>
   <div id="toast" role="status" hidden></div><input type="file" id="restore-file" accept=".json,application/json" hidden>
