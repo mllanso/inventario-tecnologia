@@ -1,9 +1,11 @@
-import { BusinessView } from './business.js?v=20261102-plan-v2';
-import { TRAFFIC } from './business-domain.js?v=20261102-plan-v2';
-import { PlanningView } from './planning.js?v=20261102-plan-v2';
+import { ExplorerView } from './explorer.js?v=20261102-explorer';
+import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261102-explorer';
+import { BusinessView } from './business.js?v=20261102-explorer';
+import { TRAFFIC } from './business-domain.js?v=20261102-explorer';
+import { PlanningView } from './planning.js?v=20261102-explorer';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261102-plan-v2';
-import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261102-plan-v2';
+import { CloudInventory, cloudError } from './cloud.js?v=20261102-explorer';
+import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261102-explorer';
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -24,6 +26,12 @@ const filters = { search:'', schools:[], categories:[], states:[], uses:[],traff
 let currentView = 'dashboard', charts = {}, editing = null, toastTimer;
 const planner = new PlanningView({getData:()=>data, getFilters:()=>filters, canDiscard:()=>!cloudBusy, canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():true, save:savePlanningModel, refresh:render, toast, ask, download, cloudEnabled:SUPABASE_CONFIG.enabled,createRequest:(resource,quantity)=>{if(planner.hasChanges()){toast('Guardá primero la planificación.');return;}business.newRequest(resource.groupId||'',{schoolId:resource.schoolId,quantity,name:resource.name});}});
 const business = new BusinessView({getData:()=>data,getBusiness:()=>cloudStore?.business,canEdit:()=>SUPABASE_CONFIG.enabled?(cloudLoaded&&['admin','coordinator'].includes(cloudStore?.role)):true,userId:()=>cloudSession?.user.id,run:runBusinessAction,fetchReport:fetchBusinessReport,editResource:id=>openEditor('resources',id),toast,download});
+const explorer=new ExplorerView({getData:()=>data,getBusiness:()=>cloudStore?.business,canSeePrices:()=>cloudStore?.role!=='requester',openInventory:id=>{Object.assign(filters,{search:'',schools:[id],categories:[],states:[],uses:[],traffic:[]});$('#search').value='';location.hash='resources';}});
+// Los módulos actualizan sus paneles de forma independiente; el observador
+// mantiene los logos en los nombres de colegio sin modificar datos guardados.
+let brandingPending=false;
+const schoolBrandObserver=new MutationObserver(()=>{if(brandingPending)return;brandingPending=true;queueMicrotask(()=>{brandSchoolNames(document.querySelector('main'),data.schools);brandSchoolNames($('#business-dialog'),data.schools);brandingPending=false;});});
+for(const root of [document.querySelector('main'),$('#business-dialog')])schoolBrandObserver.observe(root,{childList:true,subtree:true});
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => $('#toast').hidden = true, 5000); }
 async function persist(next, recovery = false) {
   if (SUPABASE_CONFIG.enabled) return saveCloud(next,recovery);
@@ -66,7 +74,7 @@ function renderFilters() {
   multiFilter('states','Estado físico',STATES.map(x => ({id:x,name:x})),'Todos los estados');
   multiFilter('uses','Uso en 2026',USES.map(x => ({id:x,name:x})),'Todas las frecuencias');
 }
-const titles = {dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Gestión de colegios','Cada institución, conectada con sus recursos.'],categories:['Categorías de recursos','Una estructura clara para organizar la tecnología.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
+const titles = {explorer:['Explorador Comparativo','Explorá el catálogo de cada colegio y compará hasta dos sedes en paralelo.'],dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Gestión de colegios','Cada institución, conectada con sus recursos.'],categories:['Categorías de recursos','Una estructura clara para organizar la tecnología.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
 function setView() {
   currentView = location.hash.slice(1);
   if (!titles[currentView]) currentView = 'dashboard';
@@ -74,17 +82,19 @@ function setView() {
   $('#page-title').textContent = title; $('#breadcrumb').textContent = title; $('#page-description').textContent = description;
   document.querySelectorAll('[data-view]').forEach(a => { a.classList.toggle('active',a.dataset.view === currentView); if (a.dataset.view === currentView) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   const entity = ['schools','categories'].includes(currentView);
+  const exploring=currentView==='explorer';
+  $('#explorer-view').hidden=!exploring;
   const planning = currentView === 'planning2027';
   const module = ['requests','transfers','reports'].includes(currentView);
   $('#business-view').hidden=!module;
-  $('#traffic-panel').hidden=entity||module||planning;
+  $('#traffic-panel').hidden=entity||module||planning||exploring;
   $('#filter-states').hidden=planning; $('#filter-uses').hidden=planning;
   $('#grouped-resources').hidden=currentView!=='resources';
   $('#planning-view').hidden = !planning;
-  $('#add-button').hidden = planning||module;
-  $('#filters').hidden = entity||module; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = entity || planning||module||currentView==='resources'; $('#entities-view').hidden = !entity;
-  $('#pricing-summary').hidden = entity || planning||module||cloudStore?.role==='requester';
-  $('#pdf-button').hidden = entity || planning||module;
+  $('#add-button').hidden = planning||module||exploring;
+  $('#filters').hidden = entity||module||exploring; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = entity || planning||module||exploring||currentView==='resources'; $('#entities-view').hidden = !entity;
+  $('#pricing-summary').hidden = entity || planning||module||exploring||cloudStore?.role==='requester';
+  $('#pdf-button').hidden = entity || planning||module||exploring;
   $('#add-button').textContent = currentView === 'schools' ? '＋ Nuevo colegio' : currentView === 'categories' ? '＋ Nueva categoría' : '＋ Nuevo recurso';
   render();
 }
@@ -101,9 +111,13 @@ function renderContent() {
   if(currentView==='resources')business.renderGroups(rows);
   if(['requests','transfers','reports'].includes(currentView))business.render(currentView);
   renderTable(rows);
-  if (currentView === 'dashboard') renderDashboard(rows);
+  if (currentView === 'dashboard') {
+    $('#dashboard-school-brands').innerHTML=data.schools.map(s=>`<span>${schoolIdentity(s)}</span>`).join('');
+    renderDashboard(rows);
+  }
   if (['schools','categories'].includes(currentView)) renderEntities();
   if (currentView === 'planning2027') planner.render(rows);
+  if (currentView === 'explorer') explorer.render();
   applyAccess();
 }
 function badge(label, tone, title = '') { return `<span class="badge ${tone}" title="${escapeHTML(title)}">${escapeHTML(label)}</span>`; }
@@ -119,7 +133,7 @@ function renderEntities() {
   const key = currentView;
   $('#entity-list').innerHTML = data[key].length ? data[key].map(entity => {
     const rows = data.resources.filter(r => r[key==='schools'?'schoolId':'categoryId']===entity.id);
-    return `<article class="entity-card"><span class="entity-icon">${key==='schools'?'⌂':'◇'}</span><h3>${escapeHTML(entity.name)}</h3><p>${key==='schools'?escapeHTML(entity.location || 'Sin ubicación registrada'):'Categoría de recursos tecnológicos'}<br>${rows.length} lotes · ${rows.reduce((s,r)=>s+r.quantity,0)} unidades</p><div class="entity-actions"><button class="text-button" data-edit="${escapeHTML(entity.id)}">Editar ${key==='schools'?'colegio':'categoría'}</button><button class="text-button" data-delete="${escapeHTML(entity.id)}">Eliminar</button></div></article>`;
+    return `<article class="entity-card"><span class="entity-icon">${key==='schools'?schoolLogo(entity,'card'):'◇'}</span><h3>${escapeHTML(entity.name)}</h3><p>${key==='schools'?escapeHTML(entity.location || 'Sin ubicación registrada'):'Categoría de recursos tecnológicos'}<br>${rows.length} lotes · ${rows.reduce((s,r)=>s+r.quantity,0)} unidades</p><div class="entity-actions"><button class="text-button" data-edit="${escapeHTML(entity.id)}">Editar ${key==='schools'?'colegio':'categoría'}</button><button class="text-button" data-delete="${escapeHTML(entity.id)}">Eliminar</button></div></article>`;
   }).join('') : '<div class="panel empty">Todavía no hay registros. Usá el botón de creación para comenzar.</div>';
   $('#entity-list').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEditor(key,b.dataset.edit));
   $('#entity-list').querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteRecord(key,b.dataset.delete));
@@ -308,6 +322,7 @@ function setAuthMessage(message) { $('#auth-message').textContent = message; }
 function clearCloudSession() {
   cloudSession = null; cloudStore = null; cloudLoaded = false; cloudBusy = false;
   planner.clear();
+  explorer.clear();
   data = {version:1,currency:'USD',schools:[],categories:[],resources:[]};
   document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
   document.body.classList.add('cloud-locked');

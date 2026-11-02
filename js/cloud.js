@@ -1,5 +1,5 @@
-import { validateData } from './domain.js?v=20261102-plan-v2';
-import {validatePlanningModel} from './planning-domain.js?v=20261102-plan-v2';
+import { validateData } from './domain.js?v=20261102-explorer';
+import {validatePlanningModel} from './planning-domain.js?v=20261102-explorer';
 export class CloudInventory {
   constructor(client) { this.client = client; this.revision = null; this.role = null; this.business=null; this.planningV2=false; }
   async call(name,args){

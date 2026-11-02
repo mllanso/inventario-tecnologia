@@ -1,4 +1,4 @@
-import {validatePlanningModel} from './planning-domain.js?v=20261102-plan-v2';
+import {validatePlanningModel} from './planning-domain.js?v=20261102-explorer';
 export const YEAR = 2026;
 export const STATES = ['Activo', 'En Reparación', 'Obsoleto'];
 export const USES = ['Alta', 'Regular', 'Baja', 'Nula'];

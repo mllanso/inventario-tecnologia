@@ -4,12 +4,12 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#112b2a"><meta name="description" content="Gestión de inventario y planificación tecnológica escolar, ciclo 2026.">
   <title>Nexo · Coordinación de Tecnología</title>
-  <link rel="stylesheet" href="css/styles.css?v=20261102-plan-v2">
+  <link rel="stylesheet" href="css/styles.css?v=20261102-explorer">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@3.0.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script type="module" src="js/app.js?v=20261102-plan-v2"></script>
+  <script type="module" src="js/app.js?v=20261102-explorer"></script>
 </head>
 <body class="cloud-start">
   <section id="auth-screen" class="auth-screen">
@@ -28,6 +28,7 @@
       <a href="#dashboard" data-view="dashboard"><span>◫</span> Dashboard general</a>
       <a href="#resources" data-view="resources"><span>▦</span> Gestión de recursos</a>
       <a href="#schools" data-view="schools"><span>⌂</span> Gestión de colegios</a>
+      <a href="#explorer" data-view="explorer"><span>◎</span> Explorador Comparativo</a>
       <a href="#categories" data-view="categories"><span>◇</span> Categorías</a>
       <a href="#planning2027" data-view="planning2027"><span>↗</span> Planificación 2027</a>
       <a href="#requests" data-view="requests"><span>＋</span> Solicitudes y compras</a>
@@ -53,7 +54,15 @@
       <section id="traffic-panel" class="traffic-grid" aria-label="Filtrar por semáforo"></section>
       <section id="grouped-resources" hidden></section>
       <section id="business-view" hidden></section>
+      <section id="explorer-view" data-explorer-root hidden>
+        <div class="explorer-intro"><div><p class="eyebrow">LA RED, SEDE POR SEDE</p><h2>Conocé, conectá, compará.</h2><p>Un clic para explorar una sede. Elegí una segunda para contrastar sus recursos en paralelo.</p></div><button class="button secondary" id="explorer-clear" disabled>Limpiar selección</button></div>
+        <p id="explorer-selection-status" class="explorer-selection-status" role="status" aria-live="polite"></p>
+        <div class="explorer-workspace" id="explorer-workspace"><div class="explorer-canvas" id="explorer-bubbles" role="group" aria-label="Seleccionar hasta dos colegios"></div><div class="explorer-output">
+        <div class="explorer-detail-tools" id="explorer-detail-tools" hidden><label>Buscar en el catálogo<input id="explorer-query" type="search" placeholder="Recurso, servicio, categoría o código…"></label><label class="explorer-diff-toggle" id="explorer-diff-label" hidden><input type="checkbox" id="explorer-differences"> Mostrar solo diferencias</label></div>
+        <div id="explorer-detail"></div></div></div>
+      </section>
       <div id="dashboard-view">
+        <div id="dashboard-school-brands" class="dashboard-school-brands" aria-label="Colegios de la red"></div>
         <section class="kpi-grid" id="kpis" aria-label="Indicadores de inventario"></section>
         <section class="charts-grid">
           <article class="panel"><div class="panel-heading"><div><p class="eyebrow">DISTRIBUCIÓN DEL INVENTARIO</p><h2>Recursos por colegio</h2></div><span class="subtle-chip">Unidades</span></div><p class="panel-description">Comparativa de disponibilidad por estado operativo.</p><div class="chart-wrap"><canvas id="schools-chart" role="img" aria-label="Gráfico de recursos por colegio y estado"></canvas></div><p class="chart-note">Seleccioná una leyenda para mostrar u ocultar un estado.</p></article>
