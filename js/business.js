@@ -1,4 +1,4 @@
-import {TRAFFIC,trafficOf,groupResources,requestColor,REQUEST_STATES,TRANSFER_STATES,usd,centsFromInput,exportReportXLSX,exportReportPDF} from './business-domain.js?v=20261102-business';
+import {TRAFFIC,trafficOf,groupResources,requestColor,REQUEST_STATES,TRANSFER_STATES,usd,centsFromInput,exportReportXLSX,exportReportPDF} from './business-domain.js?v=20261102-plan-v2';
 const $=s=>document.querySelector(s);
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const field=(name,label,type='text',value='',extra='')=>`<label>${label}<input name="${name}" type="${type}" value="${h(value)}" ${extra}></label>`;
@@ -111,3 +111,4 @@ export class BusinessView{
   $('#export-business-xlsx').onclick=async()=>{try{await exportReportXLSX(r,this.data().schools,this.download);}catch(e){this.toast(e.message);}};$('#export-business-pdf').onclick=()=>{try{exportReportPDF(r,this.data().schools);}catch(e){this.toast(e.message);}};
  }
 }
+

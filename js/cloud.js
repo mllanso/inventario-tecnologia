@@ -1,17 +1,38 @@
-import { validateData } from './domain.js?v=20261102-business';
+import { validateData } from './domain.js?v=20261102-plan-v2';
+import {validatePlanningModel} from './planning-domain.js?v=20261102-plan-v2';
 export class CloudInventory {
-  constructor(client) { this.client = client; this.revision = null; this.role = null; this.business=null; }
+  constructor(client) { this.client = client; this.revision = null; this.role = null; this.business=null; this.planningV2=false; }
   async call(name,args){
     let timer;try{return await Promise.race([this.client.rpc(name,args),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('La conexión demoró demasiado. Actualizá los datos antes de reintentar.')),20000);})]);}finally{clearTimeout(timer);}
   }
-  async load() {
+  async load(attempt=0) {
     const {data,error} = await this.call('nexo_load');
     if (error) throw cloudError(error);
     if (!data || !Number.isSafeInteger(data.revision) || !['viewer','coordinator','admin','requester'].includes(data.role)) throw Error('Respuesta de Supabase no compatible.');
-    const inventory = validateData(data.inventory);
+    const inventory = validateData(structuredClone(data.inventory));
+    const planning=await this.call('nexo_planning_load');
+    let planningV2=false;
+    if(planning.error){if(planning.error.code!=='PGRST202')throw cloudError(planning.error);delete inventory.planning2027;}
+    else {
+      if(planning.data?.revision!==data.revision){if(attempt<2)return this.load(attempt+1);throw Error('El inventario cambió durante la lectura. Actualizá los datos.');}
+      inventory.planning2027=validatePlanningModel(planning.data.model);planningV2=true;
+    }
     this.revision = data.revision; this.role = data.role;
     this.business=data.business||null;
+    this.planningV2=planningV2;
     return inventory;
+  }
+  async savePlanning(model){
+    validatePlanningModel(model);
+    if(!this.planningV2||!['admin','coordinator'].includes(this.role))throw Error('Necesitás la actualización del plan y permiso de edición.');
+    const {data,error}=await this.call('nexo_planning_save',{p_model:model,p_expected_revision:this.revision});
+    if(error)throw cloudError(error);if(!Number.isSafeInteger(data?.revision))throw Error('No se pudo confirmar el guardado del plan.');this.revision=data.revision;
+  }
+  async restore(inventory){
+    validateData(inventory);
+    if(!['admin','coordinator'].includes(this.role))throw Error('Tu cuenta tiene acceso de lectura.');
+    const {data,error}=await this.call('nexo_restore_with_planning',{p_inventory:inventory,p_expected_revision:this.revision});
+    if(error)throw cloudError(error);if(!Number.isSafeInteger(data?.revision))throw Error('No se pudo confirmar la restauración.');this.revision=data.revision;
   }
   async save(inventory) {
     validateData(inventory);
@@ -29,9 +50,11 @@ export function cloudError(error) {
   if (message.includes('NEXO_UPGRADE_REQUIRED')) return Error('Hay planificación 2027 guardada. Actualizá los archivos de la aplicación para conservarla antes de editar.');
   if (message.includes('NEXO_BUSINESS_UPGRADE')) return Error('Actualizá los archivos de la aplicación para conservar contratos, agrupaciones y movimientos.');
   if (message.includes('NEXO_FORBIDDEN')) return Error('Tu usuario no tiene acceso autorizado. Pedile al administrador que lo agregue a nexo_members.');
+  if(message.includes('nexo_planning')||message.includes('nexo_restore_with_planning'))return Error('Falta activar el nuevo plan: ejecutá supabase/planning-2027-v2.sql y actualizá los datos.');
   if (message.includes('nexo_business')) return Error('Falta activar los módulos de gestión: ejecutá supabase/business.sql en SQL Editor.');
   if (error?.code === 'PGRST202' || message.includes('nexo_load') || message.includes('nexo_save')) return Error('Falta instalar la base de datos: ejecutá supabase/setup.sql en el SQL Editor del proyecto.');
   if (message.includes('Invalid login credentials')) return Error('El correo o la contraseña no son correctos.');
   if (message.includes('Email not confirmed')) return Error('El correo de la cuenta todavía no está confirmado.');
   return Error(message);
 }
+

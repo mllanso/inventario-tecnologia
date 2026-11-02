@@ -1,9 +1,10 @@
+import {validatePlanningModel} from './planning-domain.js?v=20261102-plan-v2';
 export const YEAR = 2026;
 export const STATES = ['Activo', 'En Reparación', 'Obsoleto'];
 export const USES = ['Alta', 'Regular', 'Baja', 'Nula'];
 export const PLAN_CHOICES = [
-  {id:'same',name:'Misma cantidad'}, {id:'more',name:'Mayor cantidad'},
-  {id:'less',name:'Menor cantidad'}, {id:'discontinue',name:'Descontinuar'}
+  {id:'confirmed',name:'Confirmado'}, {id:'in_progress',name:'En proceso'},
+  {id:'rejected',name:'Descontinuado/Rechazado'}
 ];
 export function validatePlans(plans, resources) {
   if (!Array.isArray(plans) || plans.length > 5000) throw Error('La planificación 2027 no tiene un formato válido.');
@@ -72,6 +73,7 @@ export function validateData(data) {
   if (!Number.isSafeInteger(priceSummary(data.resources).totalCents)) throw Error('El valor del inventario supera el máximo permitido.');
   if (new Set(data.resources.map(r => r.code.trim().toLowerCase())).size !== data.resources.length) throw Error('Hay códigos de inventario repetidos.');
   if (data.plans2027 !== undefined) validatePlans(data.plans2027, data.resources);
+  if (data.planning2027 !== undefined) validatePlanningModel(data.planning2027);
   return data;
 }
 // La recomendación usa el inventario completo para que un filtro no invente faltantes.
@@ -117,3 +119,4 @@ export function demoData() {
       ['r12','Sensores de laboratorio','TEC-012','s2','c4','Activo','Baja',2024,8,8]
     ].map(([id,name,code,schoolId,categoryId,state,use,year,quantity,target]) => ({id,name,code,schoolId,categoryId,state,use,year,quantity,target})) };
 }
+

@@ -1,9 +1,9 @@
-import { BusinessView } from './business.js?v=20261102-business';
-import { TRAFFIC } from './business-domain.js?v=20261102-business';
-import { PlanningView } from './planning.js?v=20261102-business';
+import { BusinessView } from './business.js?v=20261102-plan-v2';
+import { TRAFFIC } from './business-domain.js?v=20261102-plan-v2';
+import { PlanningView } from './planning.js?v=20261102-plan-v2';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261102-business';
-import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261102-business';
+import { CloudInventory, cloudError } from './cloud.js?v=20261102-plan-v2';
+import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261102-plan-v2';
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -22,11 +22,11 @@ try {
 }
 const filters = { search:'', schools:[], categories:[], states:[], uses:[],traffic:[] };
 let currentView = 'dashboard', charts = {}, editing = null, toastTimer;
-const planner = new PlanningView({getData:()=>data, canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():true, save:persist, refresh:render, toast, ask, download, cloudEnabled:SUPABASE_CONFIG.enabled,createRequest:(resource,quantity)=>{if(planner.hasChanges()){toast('Guardá primero la planificación.');return;}business.newRequest(resource.groupId||'',{schoolId:resource.schoolId,quantity,name:resource.name});}});
+const planner = new PlanningView({getData:()=>data, getFilters:()=>filters, canDiscard:()=>!cloudBusy, canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():true, save:savePlanningModel, refresh:render, toast, ask, download, cloudEnabled:SUPABASE_CONFIG.enabled,createRequest:(resource,quantity)=>{if(planner.hasChanges()){toast('Guardá primero la planificación.');return;}business.newRequest(resource.groupId||'',{schoolId:resource.schoolId,quantity,name:resource.name});}});
 const business = new BusinessView({getData:()=>data,getBusiness:()=>cloudStore?.business,canEdit:()=>SUPABASE_CONFIG.enabled?(cloudLoaded&&['admin','coordinator'].includes(cloudStore?.role)):true,userId:()=>cloudSession?.user.id,run:runBusinessAction,fetchReport:fetchBusinessReport,editResource:id=>openEditor('resources',id),toast,download});
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => $('#toast').hidden = true, 5000); }
 async function persist(next, recovery = false) {
-  if (SUPABASE_CONFIG.enabled) return saveCloud(next);
+  if (SUPABASE_CONFIG.enabled) return saveCloud(next,recovery);
   try {
     validateData(next);
     if (storageBlocked && !recovery) throw Error('Restaurá un respaldo válido antes de modificar los datos.');
@@ -77,7 +77,8 @@ function setView() {
   const planning = currentView === 'planning2027';
   const module = ['requests','transfers','reports'].includes(currentView);
   $('#business-view').hidden=!module;
-  $('#traffic-panel').hidden=entity||module;
+  $('#traffic-panel').hidden=entity||module||planning;
+  $('#filter-states').hidden=planning; $('#filter-uses').hidden=planning;
   $('#grouped-resources').hidden=currentView!=='resources';
   $('#planning-view').hidden = !planning;
   $('#add-button').hidden = planning||module;
@@ -235,8 +236,9 @@ $('#restore-file').onchange=async event=>{
     if(file.size>5000000) throw Error('El respaldo supera el máximo de 5 MB.');
     const restored=validateData(JSON.parse(await file.text()));
     restored.plans2027 ??= [];
+    if(!SUPABASE_CONFIG.enabled&&!restored.planning2027&&data.planning2027)restored.planning2027=structuredClone(data.planning2027);
     if(data.businessVersion===1){restored.businessVersion=1;restored.changeReason='Restauración explícita de respaldo de inventario';}
-    ask('Restaurar inventario',`Se reemplazarán el inventario y la planificación 2027 ${SUPABASE_CONFIG.enabled ? 'compartido de la coordinación' : 'de este navegador'} por ${restored.schools.length} colegios, ${restored.categories.length} categorías y ${restored.resources.length} lotes. Descargá un respaldo del inventario actual antes de confirmar si querés conservarlo.`,async()=>{if(await persist(restored,true)){render();toast('Inventario restaurado.');}});
+    ask('Restaurar inventario',`Se reemplazará el inventario ${SUPABASE_CONFIG.enabled ? 'compartido de la coordinación' : 'de este navegador'} por ${restored.schools.length} colegios, ${restored.categories.length} categorías y ${restored.resources.length} lotes. El plan 2027 se reemplaza solo si el respaldo incluye el nuevo plan. Descargá antes un respaldo actual para conservarlo.`,async()=>{if(await persist(restored,true)){render();toast('Inventario restaurado.');}});
   }catch(error){toast('No se pudo restaurar: '+error.message);}
 };
 function filterDescription() {
@@ -342,13 +344,28 @@ async function loadCloud() {
     if (cloudStore === store) { cloudBusy = false; $('#refresh-cloud').textContent='↻ Actualizar datos'; applyAccess(); }
   }
 }
-async function saveCloud(next) {
+async function savePlanningModel(model) {
+  if(!SUPABASE_CONFIG.enabled)return persist({...clone(),planning2027:model});
+  if(!canEditCloud()||!cloudStore?.planningV2)return false;
+  const store=cloudStore;cloudBusy=true;applyAccess();
+  $('#cloud-state').textContent='Guardando planificación…';
+  try {
+    await store.savePlanning(model);if(cloudStore!==store)return false;
+    data={...data,planning2027:model};$('#cloud-state').textContent='Planificación guardada en Supabase';return true;
+  } catch(error) {
+    if(cloudStore!==store)return false;cloudLoaded=false;
+    $('#cloud-state').textContent='Guardado no confirmado · Actualizá los datos';
+    $('#planning-error').textContent=error.message;toast(error.message);return false;
+  } finally {if(cloudStore===store){cloudBusy=false;applyAccess();}}
+}
+async function saveCloud(next,recovery=false) {
   if (!canEditCloud()) { toast('No se guardó: actualizá el inventario o verificá tus permisos.'); return false; }
   try { validateData(next); } catch(error) { toast(error.message); return false; }
   const store=cloudStore;
   cloudBusy=true; applyAccess(); $('#cloud-state').textContent='Guardando en Supabase…';
   try {
-    await store.save(next);
+    if(recovery&&store.planningV2){await store.restore(next);next=await store.load();}
+    else await store.save(next);
     if (cloudStore !== store) return false;
     data=next; $('#cloud-state').textContent='Guardado en Supabase · USD';
     return true;
@@ -419,3 +436,6 @@ async function initializeCloud() {
 $('#login-form').onsubmit=event=>event.preventDefault();
 function boot() { setView(); initializeCloud(); }
 if(document.readyState==='complete')boot();else window.addEventListener('load',boot,{once:true});
+
+
+

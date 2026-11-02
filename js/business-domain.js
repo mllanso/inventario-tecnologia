@@ -48,3 +48,4 @@ export function exportReportPDF(report,schools,JsPDF=globalThis.jspdf?.jsPDF){
  for(const sheet of reportSheets(report,schools)){page();write(sheet.name,16,true);if(!sheet.rows.length)write('Sin registros para los filtros elegidos.');for(const row of sheet.rows)write(row.map((v,i)=>`${sheet.headers[i]}: ${v??''}`).join(' | '),9);}
  const n=doc.getNumberOfPages();for(let p=1;p<=n;p++){doc.setPage(p);doc.setFontSize(8);doc.text(`Nexo · ${p} / ${n}`,170,287);}doc.save(`nexo-reporte-${report.to}.pdf`);
 }
+

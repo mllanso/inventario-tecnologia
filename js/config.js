@@ -4,3 +4,4 @@ export const SUPABASE_CONFIG = Object.freeze({
   url: 'https://adhozgbbsrxywvxtraft.supabase.co',
   publishableKey: 'sb_publishable_J87lFrMkPwnN4Y_eCpSfsw_4RAVPDpr'
 });
+
