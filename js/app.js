@@ -1,11 +1,11 @@
-import { ExplorerView } from './explorer.js?v=20261102-explorer';
-import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261102-explorer';
-import { BusinessView } from './business.js?v=20261102-explorer';
-import { TRAFFIC } from './business-domain.js?v=20261102-explorer';
-import { PlanningView } from './planning.js?v=20261102-explorer';
+import { ExplorerView } from './explorer.js?v=20261102-tools';
+import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261102-tools';
+import { BusinessView } from './business.js?v=20261102-tools';
+import { TRAFFIC } from './business-domain.js?v=20261102-tools';
+import { PlanningView } from './planning.js?v=20261102-tools';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261102-explorer';
-import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261102-explorer';
+import { CloudInventory, cloudError } from './cloud.js?v=20261102-tools';
+import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261102-tools';
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -26,7 +26,7 @@ const filters = { search:'', schools:[], categories:[], states:[], uses:[],traff
 let currentView = 'dashboard', charts = {}, editing = null, toastTimer;
 const planner = new PlanningView({getData:()=>data, getFilters:()=>filters, canDiscard:()=>!cloudBusy, canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():true, save:savePlanningModel, refresh:render, toast, ask, download, cloudEnabled:SUPABASE_CONFIG.enabled,createRequest:(resource,quantity)=>{if(planner.hasChanges()){toast('Guardá primero la planificación.');return;}business.newRequest(resource.groupId||'',{schoolId:resource.schoolId,quantity,name:resource.name});}});
 const business = new BusinessView({getData:()=>data,getBusiness:()=>cloudStore?.business,canEdit:()=>SUPABASE_CONFIG.enabled?(cloudLoaded&&['admin','coordinator'].includes(cloudStore?.role)):true,userId:()=>cloudSession?.user.id,run:runBusinessAction,fetchReport:fetchBusinessReport,editResource:id=>openEditor('resources',id),toast,download});
-const explorer=new ExplorerView({getData:()=>data,getBusiness:()=>cloudStore?.business,canSeePrices:()=>cloudStore?.role!=='requester',openInventory:id=>{Object.assign(filters,{search:'',schools:[id],categories:[],states:[],uses:[],traffic:[]});$('#search').value='';location.hash='resources';}});
+const explorer=new ExplorerView({canEditTools:()=>SUPABASE_CONFIG.enabled?canEditCloud():true,toolsInstalled:()=>!SUPABASE_CONFIG.enabled||cloudStore?.toolsEnabled===true,runTool:runToolAction,ask,toast,getData:()=>data,getBusiness:()=>cloudStore?.business,canSeePrices:()=>cloudStore?.role!=='requester',openInventory:id=>{Object.assign(filters,{search:'',schools:[id],categories:[],states:[],uses:[],traffic:[]});$('#search').value='';location.hash='resources';}});
 // Los módulos actualizan sus paneles de forma independiente; el observador
 // mantiene los logos en los nombres de colegio sin modificar datos guardados.
 let brandingPending=false;
@@ -247,12 +247,13 @@ $('#restore-button').onclick=()=>$('#restore-file').click();
 $('#restore-file').onchange=async event=>{
   const file=event.target.files[0]; event.target.value=''; if(!file)return;
   try {
-    if(file.size>5000000) throw Error('El respaldo supera el máximo de 5 MB.');
+    if(file.size>25000000) throw Error('El respaldo supera el máximo de 25 MB.');
     const restored=validateData(JSON.parse(await file.text()));
     restored.plans2027 ??= [];
+    if(!SUPABASE_CONFIG.enabled&&!restored.schoolTools&&data.schoolTools)restored.schoolTools=structuredClone(data.schoolTools);
     if(!SUPABASE_CONFIG.enabled&&!restored.planning2027&&data.planning2027)restored.planning2027=structuredClone(data.planning2027);
     if(data.businessVersion===1){restored.businessVersion=1;restored.changeReason='Restauración explícita de respaldo de inventario';}
-    ask('Restaurar inventario',`Se reemplazará el inventario ${SUPABASE_CONFIG.enabled ? 'compartido de la coordinación' : 'de este navegador'} por ${restored.schools.length} colegios, ${restored.categories.length} categorías y ${restored.resources.length} lotes. El plan 2027 se reemplaza solo si el respaldo incluye el nuevo plan. Descargá antes un respaldo actual para conservarlo.`,async()=>{if(await persist(restored,true)){render();toast('Inventario restaurado.');}});
+    ask('Restaurar inventario',`Se reemplazará el inventario ${SUPABASE_CONFIG.enabled ? 'compartido de la coordinación' : 'de este navegador'} por ${restored.schools.length} colegios, ${restored.categories.length} categorías y ${restored.resources.length} lotes. El plan 2027 y las herramientas se reemplazan solo si el respaldo incluye sus datos. Descargá antes un respaldo actual para conservarlo.`,async()=>{if(await persist(restored,true)){render();toast('Inventario restaurado.');}});
   }catch(error){toast('No se pudo restaurar: '+error.message);}
 };
 function filterDescription() {
@@ -313,6 +314,7 @@ async function fetchBusinessReport(filters){
 }
 function applyAccess() {
   planner.applyAccess();
+  if(currentView==='explorer'&&!cloudBusy)explorer.renderDetail();
   if (!SUPABASE_CONFIG.enabled) return;
   const canEdit = canEditCloud();
   document.querySelectorAll('#add-button,#restore-button,[data-edit],[data-delete],#editor-form button[type="submit"],#confirm-accept').forEach(button => button.disabled = !canEdit);
@@ -333,6 +335,7 @@ function clearCloudSession() {
   render();
 }
 async function loadCloud() {
+  if($('#tool-dialog').open){toast('Guardá o cerrá la ficha de herramienta antes de actualizar.');return;}
   if (planner.hasChanges()) { toast('Guardá o descartá los cambios de planificación antes de actualizar los datos.'); return; }
   if (cloudBusy || !cloudSession || !cloudStore) return;
   const store = cloudStore;
@@ -359,6 +362,19 @@ async function loadCloud() {
     if (cloudStore === store) { cloudBusy = false; $('#refresh-cloud').textContent='↻ Actualizar datos'; applyAccess(); }
   }
 }
+async function runToolAction(action,tool) {
+  if(planner.hasChanges())throw Error('Guardá o descartá la planificación antes de modificar herramientas.');
+  if(!SUPABASE_CONFIG.enabled){
+    const next=clone();next.schoolTools=(next.schoolTools||[]).filter(t=>t.id!==tool.id);
+    if(action==='upsert')next.schoolTools.push(tool);
+    if(!await persist(next))throw Error('No se pudo guardar la herramienta en este navegador.');return;
+  }
+  if(!canEditCloud()||!cloudStore?.toolsEnabled)throw Error('Actualizá los datos y verificá el permiso de edición.');
+  const store=cloudStore;cloudBusy=true;applyAccess();
+  try{await store.saveTool(action,tool);const next=await store.load();if(cloudStore!==store)throw Error('La sesión cambió.');data=next;$('#cloud-state').textContent='Herramientas guardadas en Supabase';}
+  catch(error){if(cloudStore===store){cloudLoaded=false;$('#cloud-state').textContent='Actualizá los datos antes de continuar';}throw error;}
+  finally{if(cloudStore===store){cloudBusy=false;applyAccess();}}
+}
 async function savePlanningModel(model) {
   if(!SUPABASE_CONFIG.enabled)return persist({...clone(),planning2027:model});
   if(!canEditCloud()||!cloudStore?.planningV2)return false;
@@ -379,7 +395,7 @@ async function saveCloud(next,recovery=false) {
   const store=cloudStore;
   cloudBusy=true; applyAccess(); $('#cloud-state').textContent='Guardando en Supabase…';
   try {
-    if(recovery&&store.planningV2){await store.restore(next);next=await store.load();}
+    if(recovery&&(store.planningV2||store.toolsEnabled)){await store.restore(next);next=await store.load();}
     else await store.save(next);
     if (cloudStore !== store) return false;
     data=next; $('#cloud-state').textContent='Guardado en Supabase · USD';

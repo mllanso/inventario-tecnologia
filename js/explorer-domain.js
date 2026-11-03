@@ -1,5 +1,5 @@
-import {normalize} from './school-branding.js?v=20261102-explorer';
-import {priceSummary} from './domain.js?v=20261102-explorer';
+import {normalize} from './school-branding.js?v=20261102-tools';
+import {priceSummary} from './domain.js?v=20261102-tools';
 export function catalogKey(resource){return resource.groupId&&!resource.groupId.startsWith('legacy:')?'group:'+resource.groupId:'name:'+JSON.stringify([resource.categoryId,normalize(resource.name)]);}
 export function schoolCatalog(data,schoolId){
  const map=new Map();

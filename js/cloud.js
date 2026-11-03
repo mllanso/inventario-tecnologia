@@ -1,5 +1,6 @@
-import { validateData } from './domain.js?v=20261102-explorer';
-import {validatePlanningModel} from './planning-domain.js?v=20261102-explorer';
+import { validateData } from './domain.js?v=20261102-tools';
+import {validatePlanningModel} from './planning-domain.js?v=20261102-tools';
+import {validateTools,validateTool} from './tools-domain.js?v=20261102-tools';
 export class CloudInventory {
   constructor(client) { this.client = client; this.revision = null; this.role = null; this.business=null; this.planningV2=false; }
   async call(name,args){
@@ -17,6 +18,13 @@ export class CloudInventory {
       if(planning.data?.revision!==data.revision){if(attempt<2)return this.load(attempt+1);throw Error('El inventario cambió durante la lectura. Actualizá los datos.');}
       inventory.planning2027=validatePlanningModel(planning.data.model);planningV2=true;
     }
+    const tools=await this.call('nexo_tools_load');let toolsEnabled=false;
+    if(tools.error){if(tools.error.code!=='PGRST202')throw cloudError(tools.error);delete inventory.schoolTools;}
+    else {
+      if(tools.data?.revision!==data.revision){if(attempt<2)return this.load(attempt+1);throw Error('El catálogo cambió durante la lectura. Actualizá los datos.');}
+      inventory.schoolTools=validateTools(tools.data.items);toolsEnabled=true;
+    }
+    this.toolsEnabled=toolsEnabled;
     this.revision = data.revision; this.role = data.role;
     this.business=data.business||null;
     this.planningV2=planningV2;
@@ -30,18 +38,26 @@ export class CloudInventory {
   }
   async restore(inventory){
     validateData(inventory);
+    if(inventory.schoolTools!==undefined&&!this.toolsEnabled)throw Error('Activá primero supabase/school-tools.sql para restaurar también las herramientas.');
     if(!['admin','coordinator'].includes(this.role))throw Error('Tu cuenta tiene acceso de lectura.');
-    const {data,error}=await this.call('nexo_restore_with_planning',{p_inventory:inventory,p_expected_revision:this.revision});
+    const {data,error}=await this.call(this.toolsEnabled?'nexo_restore_with_tools':'nexo_restore_with_planning',{p_inventory:inventory,p_expected_revision:this.revision});
     if(error)throw cloudError(error);if(!Number.isSafeInteger(data?.revision))throw Error('No se pudo confirmar la restauración.');this.revision=data.revision;
   }
   async save(inventory) {
     validateData(inventory);
     if (this.revision === null) throw Error('Primero actualizá el inventario desde Supabase.');
     if (!['coordinator','admin'].includes(this.role)) throw Error('Tu cuenta tiene acceso de lectura.');
-    const {data,error} = await this.call('nexo_save', {p_inventory: inventory, p_expected_revision: this.revision});
+    const {schoolTools,...core}=inventory;
+    const {data,error} = await this.call('nexo_save', {p_inventory: core, p_expected_revision: this.revision});
     if (error) throw cloudError(error);
     if (!data || !Number.isSafeInteger(data.revision)) throw Error('No se pudo confirmar el guardado. Actualizá el inventario antes de reintentar.');
     this.revision = data.revision;
+  }
+  async saveTool(action,tool){
+    if(!this.toolsEnabled||!['admin','coordinator'].includes(this.role))throw Error('Necesitás activar las herramientas y tener permiso de edición.');
+    if(action==='upsert')validateTool(tool);
+    const {data,error}=await this.call('nexo_tool_save',{p_action:action,p_tool:tool,p_expected_revision:this.revision});
+    if(error)throw cloudError(error);if(!Number.isSafeInteger(data?.revision))throw Error('No se pudo confirmar el guardado de la herramienta.');this.revision=data.revision;
   }
 }
 export function cloudError(error) {
@@ -50,6 +66,7 @@ export function cloudError(error) {
   if (message.includes('NEXO_UPGRADE_REQUIRED')) return Error('Hay planificación 2027 guardada. Actualizá los archivos de la aplicación para conservarla antes de editar.');
   if (message.includes('NEXO_BUSINESS_UPGRADE')) return Error('Actualizá los archivos de la aplicación para conservar contratos, agrupaciones y movimientos.');
   if (message.includes('NEXO_FORBIDDEN')) return Error('Tu usuario no tiene acceso autorizado. Pedile al administrador que lo agregue a nexo_members.');
+  if(message.includes('nexo_tool')||message.includes('nexo_restore_with_tools'))return Error('Falta activar las herramientas: ejecutá supabase/school-tools.sql y actualizá los datos.');
   if(message.includes('nexo_planning')||message.includes('nexo_restore_with_planning'))return Error('Falta activar el nuevo plan: ejecutá supabase/planning-2027-v2.sql y actualizá los datos.');
   if (message.includes('nexo_business')) return Error('Falta activar los módulos de gestión: ejecutá supabase/business.sql en SQL Editor.');
   if (error?.code === 'PGRST202' || message.includes('nexo_load') || message.includes('nexo_save')) return Error('Falta instalar la base de datos: ejecutá supabase/setup.sql en el SQL Editor del proyecto.');

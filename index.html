@@ -4,12 +4,12 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#112b2a"><meta name="description" content="Gestión de inventario y planificación tecnológica escolar, ciclo 2026.">
   <title>Nexo · Coordinación de Tecnología</title>
-  <link rel="stylesheet" href="css/styles.css?v=20261102-explorer">
+  <link rel="stylesheet" href="css/styles.css?v=20261102-tools">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@3.0.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script type="module" src="js/app.js?v=20261102-explorer"></script>
+  <script type="module" src="js/app.js?v=20261102-tools"></script>
 </head>
 <body class="cloud-start">
   <section id="auth-screen" class="auth-screen">
@@ -90,6 +90,7 @@
   </div>
   <dialog id="editor"><form id="editor-form"><div class="dialog-heading"><div><p class="eyebrow">GESTIÓN DEL INVENTARIO</p><h2 id="editor-title"></h2></div><button type="button" class="icon-button" data-close aria-label="Cerrar">×</button></div><div id="form-fields" class="form-grid"></div><p id="form-error" role="alert" class="error"></p><div class="dialog-actions"><button type="button" class="button secondary" data-close>Cancelar</button><button type="submit" class="button primary">Guardar cambios</button></div></form></dialog>
   <dialog id="planning-editor"><form id="planning-editor-form"><div class="dialog-heading"><div><p class="eyebrow">PLANIFICACIÓN 2027</p><h2 id="planning-editor-title"></h2></div><button type="button" class="icon-button" id="planning-editor-close" aria-label="Cerrar planificación">×</button></div><div id="planning-editor-fields" class="form-grid"></div><p id="planning-editor-error" class="error" role="alert"></p><div class="dialog-actions"><button class="button primary" type="submit">Aplicar al plan</button></div></form></dialog>
+  <dialog id="tool-dialog"><form id="tool-form"><div class="dialog-heading"><div><p class="eyebrow">HERRAMIENTAS DE LA SEDE</p><h2 id="tool-title"></h2></div><button type="button" class="icon-button" id="tool-close" aria-label="Cerrar herramienta">×</button></div><div id="tool-fields" class="form-grid"></div><p id="tool-error" class="error" role="alert"></p><div class="dialog-actions"><button class="button primary" type="submit" id="tool-submit">Guardar herramienta</button></div></form></dialog>
   <dialog id="business-dialog"><form id="business-form"><div class="dialog-heading"><div><p class="eyebrow">GESTIÓN ENTRE COLEGIOS</p><h2 id="business-title"></h2></div><button type="button" class="icon-button" id="business-close" aria-label="Cerrar operación">×</button></div><div id="business-fields" class="form-grid"></div><p id="business-error" class="error" role="alert"></p><div class="dialog-actions"><button class="button primary" type="submit">Guardar</button></div></form></dialog>
   <dialog id="confirm-dialog"><div class="dialog-heading"><h2 id="confirm-title"></h2></div><p id="confirm-message"></p><div class="dialog-actions"><button class="button secondary" id="confirm-cancel">Cancelar</button><button class="button danger" id="confirm-accept">Confirmar</button></div></dialog>
   <dialog id="rules-dialog"><div class="dialog-heading"><h2>Criterios de decisión 2026</h2><button class="icon-button" data-close aria-label="Cerrar">×</button></div><p>Cada registro representa un lote de unidades con el mismo estado, uso y año de adquisición.</p><ol><li><b>Eliminar/Renovar:</b> estado obsoleto, uso nulo o antigüedad de 8 años o más. Tiene prioridad sobre los demás criterios.</li><li><b>Adquirir:</b> hay alta demanda en el colegio y categoría, y las unidades activas son inferiores al objetivo operativo. El objetivo del grupo es el máximo declarado en sus lotes; no se suman objetivos.</li><li><b>Mantener:</b> los demás recursos. Si están en reparación, se indica seguimiento prioritario.</li></ol><p>La disponibilidad se calcula sobre todo el inventario. Los filtros delimitan los registros que se muestran, sin cambiar la recomendación de cada recurso. Las tarjetas contabilizan unidades existentes, no cantidades a comprar. Las recomendaciones son orientativas y requieren evaluación técnica.</p></dialog>

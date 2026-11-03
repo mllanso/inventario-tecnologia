@@ -1,4 +1,5 @@
-import {validatePlanningModel} from './planning-domain.js?v=20261102-explorer';
+import {validatePlanningModel} from './planning-domain.js?v=20261102-tools';
+import {validateTools} from './tools-domain.js?v=20261102-tools';
 export const YEAR = 2026;
 export const STATES = ['Activo', 'En Reparación', 'Obsoleto'];
 export const USES = ['Alta', 'Regular', 'Baja', 'Nula'];
@@ -74,6 +75,7 @@ export function validateData(data) {
   if (new Set(data.resources.map(r => r.code.trim().toLowerCase())).size !== data.resources.length) throw Error('Hay códigos de inventario repetidos.');
   if (data.plans2027 !== undefined) validatePlans(data.plans2027, data.resources);
   if (data.planning2027 !== undefined) validatePlanningModel(data.planning2027);
+  if (data.schoolTools !== undefined) validateTools(data.schoolTools);
   return data;
 }
 // La recomendación usa el inventario completo para que un filtro no invente faltantes.
