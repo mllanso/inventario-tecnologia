@@ -1,17 +1,17 @@
-import {SchoolToolsView} from './school-tools.js?v=20261102-tools';
-import {schoolBrand,schoolLogo,schoolIdentity,escapeHTML as h,normalize} from './school-branding.js?v=20261102-tools';
-import {schoolSummary,compareSchools,selectSchool} from './explorer-domain.js?v=20261102-tools';
-import {TRAFFIC,REQUEST_STATES} from './business-domain.js?v=20261102-tools';
-import {planningModel,PLANNING_STATUSES} from './planning-domain.js?v=20261102-tools';
+import {SchoolToolsView} from './school-tools.js?v=20261104-cycles';
+import {schoolBrand,schoolLogo,schoolIdentity,escapeHTML as h,normalize} from './school-branding.js?v=20261104-cycles';
+import {schoolSummary,compareSchools,selectSchool} from './explorer-domain.js?v=20261104-cycles';
+import {TRAFFIC,REQUEST_STATES} from './business-domain.js?v=20261104-cycles';
+import {planningModel,PLANNING_STATUSES} from './planning-domain.js?v=20261104-cycles';
 const $=s=>document.querySelector(s);
 const money=c=>'USD '+(c/100).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const counts=map=>Object.entries(map).filter(([,n])=>n>0).map(([s,n])=>`${h(s)}: ${n}`).join(' · ')||'Sin unidades';
 const cost=item=>item.missingLots===item.rows.length?'Sin precios registrados':money(item.totalCents)+(item.missingLots?' · parcial':'');
 const metric=(label,value,note='')=>`<div class="explorer-metric"><span>${h(label)}</span><strong>${h(value)}</strong>${note?`<small>${h(note)}</small>`:''}</div>`;
 export class ExplorerView{
- constructor({getData,getBusiness,canSeePrices,openInventory,canEditTools,toolsInstalled,runTool,ask,toast}){
+ constructor({getData,getBusiness,canSeePrices,openInventory,bindNotes,toolRefresh,canEditTools,toolsInstalled,runTool,ask,toast}){
   Object.assign(this,{getData,getBusiness,canSeePrices,openInventory});this.selected=[];this.query='';this.differences=false;
-  this.tools=new SchoolToolsView({getData,canEdit:canEditTools,installed:toolsInstalled,run:runTool,refresh:()=>this.render(),ask,toast});
+  this.tools=new SchoolToolsView({getData,canEdit:canEditTools,installed:toolsInstalled,run:runTool,refresh:toolRefresh||(()=>this.render()),bindNotes,ask,toast});
   $('#explorer-clear').onclick=()=>{this.selected=[];this.query='';this.differences=false;$('#explorer-query').value='';$('#explorer-differences').checked=false;this.render();$('#explorer-bubbles button')?.focus();};
   $('#explorer-query').oninput=e=>{this.query=e.target.value;this.renderDetail();};
   $('#explorer-differences').onchange=e=>{this.differences=e.target.checked;this.renderDetail();};

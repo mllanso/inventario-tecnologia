@@ -21,6 +21,7 @@ export function centsFromInput(value){
 export function reportSheets(report,schools=[]){
  const school=id=>schools.find(s=>s.id===id)?.name||id||'Central';
  return [
+ ...(report.inventoryValuation?[{name:'Valoración inventario',headers:['Categoría patrimonial','Estado patrimonial','Unidades','Valor USD','Lotes sin precio'],rows:report.inventoryValuation.groups.map(g=>[g.category,g.state,g.quantity,g.cents/100,g.missing])}]:[]),
  {name:'Imputación USD',headers:['Contrato','Sede / Centro de costo','Estado','Unidades','Capacidad','Importe imputado USD','Costo contrato USD'],rows:report.costs.map(c=>[c.contract,c.school,c.status,c.units,c.capacity,Number(c.cents)/100,Number(c.contractCents)/100])},
  {name:'Solicitudes',headers:['ID','Recurso','Sede','Estado','Semáforo','Solicitadas','Recibidas','Pendientes','Fecha','Motivo','Solicitante'],rows:report.requests.map(r=>[r.id,r.name,school(r.school_id),REQUEST_STATES[r.status],requestColor(r.status),r.quantity,r.received,r.quantity-r.received,r.created_at,r.reason,r.requester_name])},
  {name:'Movimientos',headers:['Fecha','Recurso','Sede','Unidades (+/-)','Estado','Operación','Motivo','Usuario','Referencia'],rows:report.movements.map(m=>[m.created_at,m.resource_name,school(m.school_id),m.delta,m.traffic_status,m.kind,m.reason,m.actor_name,m.reference||''])}
@@ -44,6 +45,7 @@ export function exportReportPDF(report,schools,JsPDF=globalThis.jspdf?.jsPDF){
  const write=(value,size=10,bold=false)=>{doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);for(const line of doc.splitTextToSize(String(value),170)){if(y>272)page();doc.text(line,20,y);y+=size*.5+1;}y+=3;};
  doc.setTextColor(25,65,51);write('NEXO · Reporte de gestión',18,true);write(`${report.from} al ${report.to}`,12,true);write(`Sede: ${report.schoolFilter||'Todas'} | Semáforo: ${report.statusFilter||'Todos'}`,10);
  write(report.mode);write('Costos: distribución a fecha de corte. No es gasto devengado ni amortización del período.',9);
+ if(report.inventoryValuation)write('Valor del inventario: '+usd(report.inventoryValuation.total)+(report.inventoryValuation.missing?' (parcial; faltan precios)':''),12,true);
  write('Total imputado de la selección: '+usd(report.costs.reduce((n,r)=>n+BigInt(r.cents),0n)),13,true);
  for(const sheet of reportSheets(report,schools)){page();write(sheet.name,16,true);if(!sheet.rows.length)write('Sin registros para los filtros elegidos.');for(const row of sheet.rows)write(row.map((v,i)=>`${sheet.headers[i]}: ${v??''}`).join(' | '),9);}
  const n=doc.getNumberOfPages();for(let p=1;p<=n;p++){doc.setPage(p);doc.setFontSize(8);doc.text(`Nexo · ${p} / ${n}`,170,287);}doc.save(`nexo-reporte-${report.to}.pdf`);

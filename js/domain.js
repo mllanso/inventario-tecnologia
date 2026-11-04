@@ -1,6 +1,8 @@
-import {validatePlanningModel} from './planning-domain.js?v=20261102-tools';
-import {validateTools} from './tools-domain.js?v=20261102-tools';
-export const YEAR = 2026;
+import {validatePlanningModel} from './planning-domain.js?v=20261104-cycles';
+import {validateTools} from './tools-domain.js?v=20261104-cycles';
+import {currentCycle} from './annual-domain.js?v=20261104-cycles';
+export let YEAR = currentCycle();
+export function setAnalysisYear(year){YEAR=Number(year);}
 export const STATES = ['Activo', 'En Reparación', 'Obsoleto'];
 export const USES = ['Alta', 'Regular', 'Baja', 'Nula'];
 export const PLAN_CHOICES = [
@@ -69,7 +71,7 @@ export function validateData(data) {
   for (const r of data.resources) {
     if (r.trafficStatus !== undefined && !['available','in_progress','required','unclassified'].includes(r.trafficStatus)) throw Error('Semáforo inválido.');
     if (r.unitPrice != null && !validUnitPrice(r.unitPrice)) throw Error('El precio unitario debe ser un número entre 0 y 10.000.000, con hasta dos decimales.');
-    if (!data.schools.some(s => s.id === r.schoolId) || !data.categories.some(c => c.id === r.categoryId) || !STATES.includes(r.state) || !USES.includes(r.use) || !Number.isInteger(r.quantity) || r.quantity < (data.businessVersion===1?0:1) || r.quantity > 1000000 || !Number.isInteger(r.target) || r.target < 1 || r.target > 1000000 || !Number.isInteger(r.year) || r.year < 1980 || r.year > YEAR || typeof r.code !== 'string' || !r.code.trim() || r.code.length > 60) throw Error('Un recurso tiene datos o relaciones inválidos.');
+    if (!data.schools.some(s => s.id === r.schoolId) || !data.categories.some(c => c.id === r.categoryId) || !STATES.includes(r.state) || !USES.includes(r.use) || !Number.isInteger(r.quantity) || r.quantity < (data.businessVersion===1?0:1) || r.quantity > 1000000 || !Number.isInteger(r.target) || r.target < 1 || r.target > 1000000 || !Number.isInteger(r.year) || r.year < 1980 || r.year > currentCycle() || typeof r.code !== 'string' || !r.code.trim() || r.code.length > 60) throw Error('Un recurso tiene datos o relaciones inválidos.');
   }
   if (!Number.isSafeInteger(priceSummary(data.resources).totalCents)) throw Error('El valor del inventario supera el máximo permitido.');
   if (new Set(data.resources.map(r => r.code.trim().toLowerCase())).size !== data.resources.length) throw Error('Hay códigos de inventario repetidos.');
@@ -83,7 +85,7 @@ export function recommendation(r, resources) {
   const group = resources.filter(x => x.schoolId === r.schoolId && x.categoryId === r.categoryId);
   const stock = group.filter(x => x.state === 'Activo').reduce((s, x) => s + x.quantity, 0);
   const target = Math.max(...group.map(x => x.target));
-  if (r.state === 'Obsoleto' || r.use === 'Nula' || YEAR - r.year >= 8) return { label: 'Eliminar/Renovar', tone: 'red', reason: r.state === 'Obsoleto' ? 'Estado obsoleto' : r.use === 'Nula' ? 'Sin uso registrado en 2026' : 'Antigüedad de 8 años o más' };
+  if (r.state === 'Obsoleto' || r.use === 'Nula' || YEAR - r.year >= 8) return { label: 'Eliminar/Renovar', tone: 'red', reason: r.state === 'Obsoleto' ? 'Estado obsoleto' : r.use === 'Nula' ? 'Sin uso registrado en el ciclo '+YEAR : 'Antigüedad de 8 años o más' };
   if (group.some(x => x.use === 'Alta') && stock < target) return { label: 'Adquirir', tone: 'amber', reason: `Alta demanda: ${stock} operativos / ${target} requeridos` };
   return { label: 'Mantener', tone: 'green', reason: r.state === 'En Reparación' ? 'Priorizar reparación y seguimiento' : 'Conservar y realizar mantenimiento preventivo' };
 }

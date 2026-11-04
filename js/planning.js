@@ -1,11 +1,11 @@
-import {createCSV} from './domain.js?v=20261102-tools';
-import {PLANNING_STATUSES,planningModel,planningBaseEntry,validatePlanningModel,setPlanningStatus,duplicatePlanningEntry,removePlanningEntry,nextPlanningCode} from './planning-domain.js?v=20261102-tools';
+import {createCSV} from './domain.js?v=20261104-cycles';
+import {PLANNING_STATUSES,planningModel,planningBaseEntry,validatePlanningModel,setPlanningStatus,duplicatePlanningEntry,removePlanningEntry,nextPlanningCode} from './planning-domain.js?v=20261104-cycles';
 const $=s=>document.querySelector(s);
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const options=(items,value)=>items.map(i=>`<option value="${h(i.id)}" ${i.id===value?'selected':''}>${h(i.name)}</option>`).join('');
 export class PlanningView{
- constructor({getData,getFilters=()=>({}),canEdit,canDiscard=()=>true,save,refresh,toast,ask,download,cloudEnabled,createRequest}){
-  Object.assign(this,{getData,getFilters,canEdit,canDiscard,save,refresh,toast,ask,download,cloudEnabled,createRequest});this.draft=null;this.modified=new Set();
+ constructor({getData,getFilters=()=>({}),canEdit,canDiscard=()=>true,save,bindNotes,refresh,toast,ask,download,cloudEnabled,createRequest}){
+  Object.assign(this,{getData,getFilters,canEdit,canDiscard,save,bindNotes,refresh,toast,ask,download,cloudEnabled,createRequest});this.draft=null;this.modified=new Set();
   $('#planning-decision').onchange=()=>this.render();$('#planning-save').onclick=()=>this.saveChanges();$('#planning-add').onclick=()=>this.openEntry();
   $('#planning-discard').onclick=()=>{if(!this.canDiscard())return;const discard=()=>{this.clear();this.render();};if(!this.canEdit()){discard();return;}this.ask('Descartar cambios del plan','Se quitarán las filas agregadas y las modificaciones sin guardar. El inventario 2026 no cambia.',discard);};
   $('#planning-csv').onclick=()=>this.exportCSV();$('#planning-editor-close').onclick=()=>$('#planning-editor').close();
@@ -41,7 +41,7 @@ export class PlanningView{
    const entry=this.model().entries.find(e=>e.id===row.dataset.planRow);
    row.querySelector('[data-plan-status-select]').onchange=event=>{this.change(entry.id,'status',event.target.value);this.render();};
    row.querySelector('[data-plan-quantity]').oninput=event=>{const changed=this.change(entry.id,'quantity',event.target.value);row.querySelector('[data-plan-delta]').textContent=this.delta(changed);row.querySelector('[data-plan-followup]').innerHTML='<span class="badge amber">Sin guardar</span>';};
-   row.querySelector('[data-plan-notes]').oninput=event=>{this.change(entry.id,'notes',event.target.value);row.querySelector('[data-plan-followup]').innerHTML='<span class="badge amber">Sin guardar</span>';};
+   if(this.bindNotes&&this.getData().planning2027?.entries.some(e=>e.id===entry.id))this.bindNotes(row.querySelector('[data-plan-notes]'),entry.id);
    row.querySelector('[data-plan-edit]').onclick=()=>this.openEntry(this.model().entries.find(e=>e.id===entry.id));
    row.querySelector('[data-plan-duplicate]').onclick=()=>this.duplicate(entry.id);
    row.querySelector('[data-plan-delete]').onclick=()=>this.remove(entry.id);
@@ -62,7 +62,7 @@ export class PlanningView{
  }
  applyAccess(){
   const editable=this.canEdit()&&this.installed();
-  $('#planning-rows').querySelectorAll('[data-plan-row]').forEach(row=>{row.querySelectorAll('input,select,textarea,button').forEach(input=>input.disabled=!editable);const entry=this.model().entries.find(e=>e.id===row.dataset.planRow);row.querySelector('[data-plan-quantity]').disabled=!editable||entry.status!=='confirmed';});
+  $('#planning-rows').querySelectorAll('[data-plan-row]').forEach(row=>{row.querySelectorAll('input,select,textarea,button').forEach(input=>input.disabled=!editable);const entry=this.model().entries.find(e=>e.id===row.dataset.planRow);row.querySelector('[data-plan-quantity]').disabled=!editable||entry.status!=='confirmed';const notes=row.querySelector('[data-plan-notes]');if(!this.getData().planning2027?.entries.some(e=>e.id===entry.id)){notes.disabled=true;notes.placeholder='Guardá primero la estructura de esta fila';notes.title='El autoguardado se habilita después de crear la fila.';}});
   $('#planning-save').disabled=!editable||!this.hasChanges();$('#planning-add').disabled=!editable;$('#planning-discard').disabled=!this.canDiscard();
  }
  duplicate(id){
@@ -84,7 +84,7 @@ export class PlanningView{
   const state=()=>{const status=$('#planning-editor [name="status"]').value,input=$('#planning-editor [name="quantity"]');input.disabled=status!=='confirmed';input.required=status==='confirmed';if(status!=='confirmed')input.value='';$('#planning-editor [name="status"]').className='plan-state '+PLANNING_STATUSES.find(s=>s.id===status).tone;};
   $('#planning-editor [name="status"]').onchange=state;state();
   const origin=$('#planning-editor [name="originResourceId"]');if(origin)origin.onchange=event=>{selectedSource=event.target.value||null;const r=data.resources.find(r=>r.id===selectedSource);baseline=r?.quantity||0;groupId=r?.groupId||null;for(const key of ['name','code','schoolId','categoryId']){if(r)$('#planning-editor [name="'+key+'"]').value=r[key];}if(!r)$('#planning-editor [name="code"]').value=nextPlanningCode(this.model().entries);};
-  $('#planning-editor-error').textContent='';$('#planning-editor').showModal();
+  $('#planning-editor-error').textContent='';$('#planning-editor').showModal();if(original&&this.bindNotes&&this.getData().planning2027?.entries.some(p=>p.id===original.id))this.bindNotes($('#planning-editor [name="notes"]'),original.id);
   $('#planning-editor-form').onsubmit=event=>{event.preventDefault();try{const values=Object.fromEntries(new FormData(event.target));const row={...e,id:original?e.id:selectedSource?'base:'+selectedSource:e.id,originResourceId:selectedSource,name:values.name.trim(),code:values.code.trim(),schoolId:values.schoolId,schoolName:data.schools.find(s=>s.id===values.schoolId)?.name||e.schoolName,categoryId:values.categoryId,categoryName:data.categories.find(c=>c.id===values.categoryId)?.name||e.categoryName,baselineQuantity:baseline,status:values.status,quantity:values.status==='confirmed'?Number(values.quantity):null,notes:values.notes.trim(),groupId};validatePlanningModel({version:2,entries:[row],excludedResourceIds:[]});const model=structuredClone(this.model());if(model.entries.some(x=>x.id!==row.id&&x.code.trim().toLowerCase()===row.code.toLowerCase()))throw Error('Ese código ya existe en el plan.');const index=model.entries.findIndex(x=>x.id===row.id);if(index>=0)model.entries[index]=row;else model.entries.push(row);model.excludedResourceIds=model.excludedResourceIds.filter(id=>id!==row.originResourceId);this.draft=model;this.modified.add(row.id);$('#planning-editor').close();this.render();this.toast('Fila preparada. Guardá la planificación para conservar los cambios.');}catch(error){$('#planning-editor-error').textContent=error.message;}};
  }
  async saveChanges(){

@@ -1,11 +1,15 @@
-import { ExplorerView } from './explorer.js?v=20261102-tools';
-import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261102-tools';
-import { BusinessView } from './business.js?v=20261102-tools';
-import { TRAFFIC } from './business-domain.js?v=20261102-tools';
-import { PlanningView } from './planning.js?v=20261102-tools';
+import {AnnualView} from './annual-view.js?v=20261104-cycles';
+import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261104-cycles';
+import {ObservationSaves} from './autosave.js?v=20261104-cycles';
+import {planningModel} from './planning-domain.js?v=20261104-cycles';
+import { ExplorerView } from './explorer.js?v=20261104-cycles';
+import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261104-cycles';
+import { BusinessView } from './business.js?v=20261104-cycles';
+import { TRAFFIC } from './business-domain.js?v=20261104-cycles';
+import { PlanningView } from './planning.js?v=20261104-cycles';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261102-tools';
-import { YEAR, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261102-tools';
+import { CloudInventory, cloudError } from './cloud.js?v=20261104-cycles';
+import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261104-cycles';
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -23,10 +27,53 @@ try {
   warning('No se pudo leer el almacenamiento. No se sobrescribirán los datos existentes. Descargá un respaldo si corresponde y restaurá un archivo válido para recuperar el acceso.');
 }
 const filters = { search:'', schools:[], categories:[], states:[], uses:[],traffic:[] };
+if(!SUPABASE_CONFIG.enabled)data.planning2027=planningModel(data);
+let selectedYear=currentCycle();
 let currentView = 'dashboard', charts = {}, editing = null, toastTimer;
-const planner = new PlanningView({getData:()=>data, getFilters:()=>filters, canDiscard:()=>!cloudBusy, canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():true, save:savePlanningModel, refresh:render, toast, ask, download, cloudEnabled:SUPABASE_CONFIG.enabled,createRequest:(resource,quantity)=>{if(planner.hasChanges()){toast('Guardá primero la planificación.');return;}business.newRequest(resource.groupId||'',{schoolId:resource.schoolId,quantity,name:resource.name});}});
-const business = new BusinessView({getData:()=>data,getBusiness:()=>cloudStore?.business,canEdit:()=>SUPABASE_CONFIG.enabled?(cloudLoaded&&['admin','coordinator'].includes(cloudStore?.role)):true,userId:()=>cloudSession?.user.id,run:runBusinessAction,fetchReport:fetchBusinessReport,editResource:id=>openEditor('resources',id),toast,download});
-const explorer=new ExplorerView({canEditTools:()=>SUPABASE_CONFIG.enabled?canEditCloud():true,toolsInstalled:()=>!SUPABASE_CONFIG.enabled||cloudStore?.toolsEnabled===true,runTool:runToolAction,ask,toast,getData:()=>data,getBusiness:()=>cloudStore?.business,canSeePrices:()=>cloudStore?.role!=='requester',openInventory:id=>{Object.assign(filters,{search:'',schools:[id],categories:[],states:[],uses:[],traffic:[]});$('#search').value='';location.hash='resources';}});
+const planner = new PlanningView({getData:()=>data, getFilters:()=>filters, canDiscard:()=>!cloudBusy, canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():selectedYear===currentCycle(), save:savePlanningModel, bindNotes:(input,id)=>bindObservation(input,'plan:'+id), refresh:render, toast, ask, download, cloudEnabled:SUPABASE_CONFIG.enabled,createRequest:(resource,quantity)=>{if(planner.hasChanges()){toast('Guardá primero la planificación.');return;}business.newRequest(resource.groupId||'',{schoolId:resource.schoolId,quantity,name:resource.name});}});
+const business = new BusinessView({onRequestsRender:()=>annual.approvals(),getYear:()=>selectedYear,getSchool:activeSchool,setSchool:setActiveSchool,readOnly:()=>selectedYear!==currentCycle()||!!cloudStore?.cycle?.readOnly,getData:()=>data,getBusiness:cycleBusiness,canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():selectedYear===currentCycle(),userId:()=>cloudSession?.user.id,run:runBusinessAction,fetchReport:fetchBusinessReport,editResource:id=>openEditor('resources',id),toast,download});
+const explorer=new ExplorerView({canEditTools:()=>SUPABASE_CONFIG.enabled?canEditCloud():selectedYear===currentCycle(),toolsInstalled:()=>!SUPABASE_CONFIG.enabled||cloudStore?.toolsEnabled===true,runTool:runToolAction,bindNotes:(input,id)=>bindObservation(input,'tool:'+id),toolRefresh:render,ask,toast,getData:()=>data,getBusiness:cycleBusiness,canSeePrices:()=>cloudStore?.role!=='requester',openInventory:id=>{Object.assign(filters,{search:'',schools:[id],categories:[],states:[],uses:[],traffic:[]});$('#search').value='';location.hash='resources';}});
+const observations=new ObservationSaves(saveObservation,()=>`${cloudSession?.user.id||'local'}:${selectedYear}:`);
+const annual=new AnnualView({getCycle:()=>cloudStore?.cycle,getData:()=>data,getBusiness:cycleBusiness,getYear:()=>selectedYear,getSchool:activeSchool,setSchool:setActiveSchool,canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():selectedYear===currentCycle(),finance:()=>cloudStore?.business?.access?.finance===true,action:runCycleAction,toolsView:explorer.tools,download,toast});
+function activeSchool(){return filters.schools.length===1?filters.schools[0]:'';}
+function cycleBusiness(){const b=cloudStore?.business;if(!b||!activeSchool())return b;const id=activeSchool(),requests=b.requests.filter(q=>q.school_id===id);return {...b,requests,events:b.events.filter(e=>requests.some(q=>q.id===e.request_id)),transfers:b.transfers.filter(t=>t.origin_id===id||t.destination_id===id)};}
+async function setActiveSchool(id){try{await observations.flush();filters.schools=id?[id]:[];business.report=null;business.reportFilters=null;render();return true;}catch(error){toast(error.message);return false;}}
+function renderCycleControls(){
+ const first=cloudStore?.cycle?.firstYear||currentCycle()-5,years=new Set([selectedYear,...Array.from({length:currentCycle()-Math.min(first,currentCycle()-5)+2},(_,i)=>Math.min(first,currentCycle()-5)+i)]);
+ $('#cycle-year').innerHTML=[...years].sort((a,b)=>a-b).map(y=>`<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('');
+ $('#active-school').innerHTML='<option value="">Ver Todos</option>'+options(data.schools,activeSchool());$('#active-school').value=activeSchool();
+ const cycle=cloudStore?.cycle;$('#cycle-status').textContent=cycle?`Corte 31/12/${selectedYear} · ${cycle.available?(cycle.readOnly?'Consulta de ciclo cerrado':'Ciclo abierto'):'Sin archivo disponible para este corte'}${cycle.snapshotAt?' · Datos al '+new Date(cycle.snapshotAt).toLocaleDateString('es-AR'):''}`:'Activá annual-cycles.sql para habilitar el archivo anual completo.';
+ $('#cycle-status').dataset.readonly=String(!!cycle?.readOnly);
+ document.querySelector('.cycle b').textContent=selectedYear;setAnalysisYear(selectedYear);document.querySelectorAll('[data-analysis-year]').forEach(e=>e.textContent=selectedYear);
+ $('#cycle-year').disabled=cloudBusy;$('#active-school').disabled=cloudBusy;
+}
+$('#active-school').onchange=e=>setActiveSchool(e.target.value);
+$('#cycle-year').onchange=async e=>{
+ const next=Number(e.target.value),previous=selectedYear;
+ try{await observations.flush();if(planner.hasChanges())throw Error('Guardá o descartá estructura y cantidades antes de cambiar de ciclo.');if(!cloudStore?.cycleEnabled)throw Error('Activá annual-cycles.sql en Supabase para consultar los ciclos.');selectedYear=next;observations.clear();business.report=null;business.reportFilters=null;filters.schools=[];await loadCloud();}
+ catch(error){selectedYear=previous;$('#cycle-year').value=previous;toast(error.message);}
+};
+let cycleQueue=Promise.resolve();
+function runCycleAction(action,payload,{renderAfter=true}={}){
+ const namespace=cloudSession?.user.id+':'+selectedYear;
+ const job=cycleQueue.catch(()=>{}).then(async()=>{
+  if(namespace!==cloudSession?.user.id+':'+selectedYear)throw Error('La sesión o el ciclo cambió.');
+  if(!cloudStore?.cycleEnabled||cloudStore.cycle?.readOnly)throw Error('Activá el módulo de ciclos y seleccioná el ciclo abierto.');
+  const deadline=Date.now()+20000;while(cloudBusy){if(Date.now()>deadline)throw Error('La conexión está ocupada. Volvé a intentar.');await new Promise(resolve=>setTimeout(resolve,100));}
+  if(namespace!==cloudSession?.user.id+':'+selectedYear)throw Error('La sesión o el ciclo cambió.');
+  const store=cloudStore;cloudBusy=true;
+  try{await store.cycleAction(action,payload);const next=await store.load();if(cloudStore!==store)throw Error('La sesión cambió durante el guardado.');data=next;cloudLoaded=true;}
+  finally{if(cloudStore===store)cloudBusy=false;}
+  if(renderAfter)render();
+ });cycleQueue=job;return job;
+}
+async function saveObservation(key,notes){
+ const split=key.indexOf(':'),type=key.slice(0,split),id=key.slice(split+1);
+ if(!SUPABASE_CONFIG.enabled){const next=clone();if(type==='plan'){const entry=next.planning2027?.entries.find(e=>e.id===id);if(!entry)throw Error('Guardá primero la fila nueva.');entry.notes=notes;}else{const tool=next.schoolTools?.find(t=>t.id===id);if(!tool)throw Error('Guardá primero la herramienta.');tool.notes=notes;}if(!await persist(next))throw Error('No se pudo guardar.');}
+ else await runCycleAction(type==='plan'?'plan_note':'tool_note',{id,notes},{renderAfter:false});
+ if(type==='plan'&&planner.draft){const entry=planner.draft.entries.find(e=>e.id===id);if(entry)entry.notes=notes;}
+}
+function bindObservation(input,key){if(selectedYear!==currentCycle()||SUPABASE_CONFIG.enabled&&!['admin','coordinator'].includes(cloudStore?.role))return;if(!input.parentElement.querySelector('[data-save-status]')){const state=document.createElement('span');state.dataset.saveStatus='';state.role='status';state.className='autosave-state';input.after(state);}observations.bind(input,key);}
 // Los módulos actualizan sus paneles de forma independiente; el observador
 // mantiene los logos en los nombres de colegio sin modificar datos guardados.
 let brandingPending=false;
@@ -34,8 +81,10 @@ const schoolBrandObserver=new MutationObserver(()=>{if(brandingPending)return;br
 for(const root of [document.querySelector('main'),$('#business-dialog')])schoolBrandObserver.observe(root,{childList:true,subtree:true});
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => $('#toast').hidden = true, 5000); }
 async function persist(next, recovery = false) {
+  if(selectedYear!==currentCycle()){toast('El ciclo seleccionado está cerrado para edición.');return false;}
   if (SUPABASE_CONFIG.enabled) return saveCloud(next,recovery);
   try {
+    next.planning2027=planningModel(next);
     validateData(next);
     if (storageBlocked && !recovery) throw Error('Restaurá un respaldo válido antes de modificar los datos.');
     const existing = localStorage.getItem(KEY);
@@ -72,7 +121,7 @@ function renderFilters() {
   multiFilter('schools','Colegio',data.schools,'Todos los colegios');
   multiFilter('categories','Categoría',data.categories,'Todas las categorías');
   multiFilter('states','Estado físico',STATES.map(x => ({id:x,name:x})),'Todos los estados');
-  multiFilter('uses','Uso en 2026',USES.map(x => ({id:x,name:x})),'Todas las frecuencias');
+  multiFilter('uses','Uso en '+selectedYear,USES.map(x => ({id:x,name:x})),'Todas las frecuencias');
 }
 const titles = {explorer:['Explorador Comparativo','Explorá el catálogo de cada colegio y compará hasta dos sedes en paralelo.'],dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Gestión de colegios','Cada institución, conectada con sus recursos.'],categories:['Categorías de recursos','Una estructura clara para organizar la tecnología.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
 function setView() {
@@ -89,7 +138,7 @@ function setView() {
   $('#business-view').hidden=!module;
   $('#traffic-panel').hidden=entity||module||planning||exploring;
   $('#filter-states').hidden=planning; $('#filter-uses').hidden=planning;
-  $('#grouped-resources').hidden=currentView!=='resources';
+  $('#grouped-resources').hidden=currentView!=='resources';$('#software-view').hidden=currentView!=='resources';
   $('#planning-view').hidden = !planning;
   $('#add-button').hidden = planning||module||exploring;
   $('#filters').hidden = entity||module||exploring; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = entity || planning||module||exploring||currentView==='resources'; $('#entities-view').hidden = !entity;
@@ -97,10 +146,13 @@ function setView() {
   $('#pdf-button').hidden = entity || planning||module||exploring;
   $('#add-button').textContent = currentView === 'schools' ? '＋ Nuevo colegio' : currentView === 'categories' ? '＋ Nueva categoría' : '＋ Nuevo recurso';
   render();
+  window.scrollTo({top:0,behavior:'auto'});
 }
-window.addEventListener('hashchange', setView);
-function render() { $('#demo-banner').hidden = !demo; renderFilters(); renderContent(); }
+let previousHash=location.hash;
+window.addEventListener('hashchange',async()=>{const next=location.hash;try{await observations.flush();previousHash=next;setView();}catch(error){history.replaceState(null,'',previousHash);toast('No se pudo cambiar de pantalla: '+error.message);}});
+function render() { $('#demo-banner').hidden = !demo; renderFilters(); renderCycleControls(); renderContent(); }
 function renderContent() {
+  renderCycleControls();
   const rows = filterResources(data, filters);
   const total = rows.reduce((s,r) => s+r.quantity,0);
   $('#filter-count').textContent = `${rows.length} de ${data.resources.length} lotes · ${total} unidades en la selección`;
@@ -108,16 +160,17 @@ function renderContent() {
   const prices = priceSummary(rows);
   $('#pricing-summary').innerHTML = `<div><p class="eyebrow">VALOR DEL INVENTARIO FILTRADO</p><strong>${money(prices.totalCents)}</strong><small>${prices.missingLots ? 'Total parcial: faltan precios por completar.' : 'Total de los artículos de la selección.'}</small></div><div><span>Unidades con precio</span><b>${prices.pricedUnits}</b></div><div><span>Lotes sin precio</span><b>${prices.missingLots}</b></div>`;
   business.renderTraffic(filterResources(data,{...filters,traffic:[]}),filters.traffic,id=>{filters.traffic=filters.traffic.includes(id)?filters.traffic.filter(x=>x!==id):[...filters.traffic,id];renderContent();});
-  if(currentView==='resources')business.renderGroups(rows);
+  if(currentView==='resources'){business.renderGroups(rows);annual.software();}
   if(['requests','transfers','reports'].includes(currentView))business.render(currentView);
   renderTable(rows);
   if (currentView === 'dashboard') {
-    $('#dashboard-school-brands').innerHTML=data.schools.map(s=>`<span>${schoolIdentity(s)}</span>`).join('');
+    annual.dashboard();
     renderDashboard(rows);
   }
   if (['schools','categories'].includes(currentView)) renderEntities();
   if (currentView === 'planning2027') planner.render(rows);
   if (currentView === 'explorer') explorer.render();
+  if(currentView==='reports')annual.financial();
   applyAccess();
 }
 function badge(label, tone, title = '') { return `<span class="badge ${tone}" title="${escapeHTML(title)}">${escapeHTML(label)}</span>`; }
@@ -180,11 +233,12 @@ function openEditor(key,id) {
   const field=(name,label,value,type='text',extra='')=>`<label>${label}<input name="${name}" type="${type}" value="${escapeHTML(value??'')}" required ${extra}></label>`;
   const select=(name,label,items,value)=>`<label>${label}<select name="${name}" required>${options(items,value)}</select></label>`;
   $('#form-fields').innerHTML = key==='resources' ?
-    `${field('name','Nombre del recurso',item.name,'text','maxlength="120"')}${field('code','Código único del lote',item.code,'text','maxlength="60"')}${select('schoolId','Colegio',data.schools,item.schoolId)}${select('categoryId','Categoría',data.categories,item.categoryId)}${select('state','Estado',STATES.map(x=>({id:x,name:x})),item.state)}${select('use','Frecuencia de uso en 2026',USES.map(x=>({id:x,name:x})),item.use||'Regular')}${field('year','Año de adquisición',item.year??YEAR,'number',`min="1980" max="${YEAR}" step="1"`)}${field('quantity','Cantidad de unidades del lote',item.quantity??1,'number','min="1" max="1000000" step="1"')}${field('target','Objetivo operativo del colegio y categoría',item.target??1,'number','min="1" max="1000000" step="1"')}<div class="full"><small>El objetivo indica cuántas unidades operativas se necesitan en esta categoría y colegio. Si existen varios lotes, se usa el objetivo máximo. Edad calculada al cierre de 2026.</small></div>` :
+    `${field('name','Nombre del recurso',item.name,'text','maxlength="120"')}${field('code','Código único del lote',item.code,'text','maxlength="60"')}${select('schoolId','Colegio',data.schools,item.schoolId)}${select('categoryId','Categoría',data.categories,item.categoryId)}${select('state','Estado',STATES.map(x=>({id:x,name:x})),item.state)}${select('use','Frecuencia de uso del ciclo',USES.map(x=>({id:x,name:x})),item.use||'Regular')}${field('year','Año de adquisición',item.year??YEAR,'number',`min="1980" max="${YEAR}" step="1"`)}${field('quantity','Cantidad de unidades del lote',item.quantity??1,'number','min="1" max="1000000" step="1"')}${field('target','Objetivo operativo del colegio y categoría',item.target??1,'number','min="1" max="1000000" step="1"')}<div class="full"><small>El objetivo indica cuántas unidades operativas se necesitan en esta categoría y colegio. Si existen varios lotes, se usa el objetivo máximo. Edad calculada al cierre del ciclo seleccionado.</small></div>` :
     `${field('name',key==='schools'?'Nombre del colegio':'Nombre de la categoría',item.name,'text','maxlength="120"')}${key==='schools'?'<label>Zona o ubicación<input name="location" maxlength="160" value="'+escapeHTML(item.location)+'"></label>':''}`;
   if(key==='schools'&&data.businessVersion===1)$('#form-fields').insertAdjacentHTML('beforeend','<label>Centro de costo (opcional)<input name="costCenter" maxlength="80" value="'+escapeHTML(item.costCenter||'')+'"></label>');
   $('#form-error').textContent=''; $('#editor-form button[type="submit"]').hidden=false; $('#editor').showModal();
   if (key === 'resources') {
+    if(cloudStore?.cycleEnabled)$('#form-fields').insertAdjacentHTML('beforeend',select('assetKind','Categoría patrimonial',['Sin clasificar','Hardware','Licencias','Mobiliario'].map(x=>({id:x,name:x})),item.assetKind||'Sin clasificar')+select('valuationState','Estado patrimonial',['Sin clasificar','En uso','Depósito','Amortizado'].map(x=>({id:x,name:x})),item.valuationState||'Sin clasificar'));
     if(data.businessVersion===1){
       $('#form-fields').insertAdjacentHTML('beforeend',select('groupId','Recurso general / Agrupación',[...(!id?[{id:'',name:'Crear una agrupación nueva'}]:[]),...(data.groups||[])],item.groupId)+select('trafficStatus','Semáforo',TRAFFIC.map(t=>({id:t.id,name:t.legend})),item.trafficStatus||'unclassified'));
       $('#editor-form [name="groupId"]').onchange=event=>{const g=data.groups.find(g=>g.id===event.target.value);if(g){$('#editor-form [name="categoryId"]').value=g.categoryId;}};
@@ -238,8 +292,8 @@ function download(content,type,filename) { const url=URL.createObjectURL(new Blo
 const dateStamp=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Argentina/Buenos_Aires'}).replaceAll('/','-');
 $('#csv-button').onclick=()=>{
   const rows=filterResources(data,filters);
-  const headers=['Código','Recurso','Colegio','Categoría','Estado físico','Semáforo','Agrupación','Uso 2026','Año de adquisición','Edad en 2026','Unidades','Precio unitario (USD)','Total (USD)','Objetivo operativo del grupo','Decisión','Motivo'];
-  download(createCSV([headers,...rows.map(r=>{const rec=recommendation(r,data.resources);return [r.code,r.name,data.schools.find(s=>s.id===r.schoolId).name,data.categories.find(c=>c.id===r.categoryId).name,r.state,TRAFFIC.find(t=>t.id===(r.trafficStatus||'unclassified'))?.legend,(data.groups||[]).find(g=>g.id===r.groupId)?.name||r.name,r.use,r.year,YEAR-r.year,r.quantity,decimalPrice(r.unitPrice == null ? null : Math.round(r.unitPrice*100)),decimalPrice(resourceTotalCents(r)),Math.max(...data.resources.filter(x=>x.schoolId===r.schoolId&&x.categoryId===r.categoryId).map(x=>x.target)),rec.label,rec.reason];})]),'text/csv;charset=utf-8;',`nexo-inventario-${dateStamp()}.csv`);
+  const headers=['Código','Recurso','Colegio','Categoría','Estado físico','Semáforo','Agrupación','Uso del ciclo','Año de adquisición','Edad al cierre del ciclo','Unidades','Precio unitario (USD)','Total (USD)','Objetivo operativo del grupo','Decisión','Motivo'];
+  download(createCSV([headers,...rows.map(r=>{const rec=recommendation(r,data.resources);return [r.code,r.name,data.schools.find(s=>s.id===r.schoolId).name,data.categories.find(c=>c.id===r.categoryId).name,r.state,TRAFFIC.find(t=>t.id===(r.trafficStatus||'unclassified'))?.legend,(data.groups||[]).find(g=>g.id===r.groupId)?.name||r.name,r.use,r.year,YEAR-r.year,r.quantity,decimalPrice(r.unitPrice == null ? null : Math.round(r.unitPrice*100)),decimalPrice(resourceTotalCents(r)),Math.max(...data.resources.filter(x=>x.schoolId===r.schoolId&&x.categoryId===r.categoryId).map(x=>x.target)),rec.label,rec.reason];})]),'text/csv;charset=utf-8;',`nexo-inventario-${selectedYear}-${dateStamp()}.csv`);
   toast(`CSV exportado: ${rows.length} lotes.`);
 };
 $('#backup-button').onclick=()=>download(JSON.stringify(data,null,2),'application/json',`nexo-respaldo-${dateStamp()}.json`);
@@ -269,19 +323,19 @@ $('#pdf-button').onclick=()=>{
     const page=()=>{doc.addPage();y=25;};
     const write=(text,size=10,bold=false)=>{doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);const lines=doc.splitTextToSize(String(text),width);for(const line of lines){if(y>270)page();doc.text(line,20,y);y+=size*.48+1;}y+=3;};
     const total=rows.reduce((s,r)=>s+r.quantity,0),active=rows.filter(r=>r.state==='Activo').reduce((s,r)=>s+r.quantity,0);
-    doc.setTextColor(25,65,51);write('NEXO | Coordinación de Tecnología',19,true);write('Resumen de inventario · Ciclo 2026',13,true);
+    doc.setTextColor(25,65,51);write('NEXO | Coordinación de Tecnología',19,true);write('Resumen de inventario · Ciclo '+selectedYear,13,true);
     write(`Emitido: ${new Date().toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires'})}${demo?' · DATOS DE DEMOSTRACIÓN':''}`,9);
     write(filterDescription(),9);write(`${total} unidades | ${rows.length} lotes | ${new Set(rows.map(r=>r.schoolId)).size} colegios | ${total?Math.round(active/total*100):0}% operativo`,11,true);
     const prices = priceSummary(rows);
     write(`Valor del inventario filtrado: ${money(prices.totalCents)} | ${prices.missingLots} lotes sin precio${prices.missingLots ? ' (total parcial)' : ''}`,11,true);
-    for(const [id,title] of [['#schools-chart','Recursos por colegio'],['#use-chart','Frecuencia de uso 2026'],['#age-chart','Uso y antigüedad']]) {
+    for(const [id,title] of [['#schools-chart','Recursos por colegio'],['#use-chart','Frecuencia de uso del ciclo'],['#age-chart','Uso y antigüedad']]) {
       const canvas=$(id); const h=Math.min(85,width*canvas.height/canvas.width);
       if(y+h+20>272)page();write(title,11,true);
       // Fondo blanco para impresión y medidas proporcionales del gráfico.
       doc.addImage(canvas.toDataURL('image/png'),'PNG',20,y,width,h);y+=h+9;
       if (id === '#use-chart') write(USES.map(use => `${use}: ${rows.filter(r => r.use === use).reduce((sum, r) => sum + r.quantity, 0)} unidades`).join(' | '),9);
     }
-    page();write('Decisiones para el ciclo 2026',16,true);
+    page();write('Decisiones para el ciclo '+selectedYear,16,true);
     for(const label of ['Adquirir','Mantener','Eliminar/Renovar']){
       const selected=rows.filter(r=>recommendation(r,data.resources).label===label);
       write(`${label}: ${selected.reduce((s,r)=>s+r.quantity,0)} unidades / ${selected.length} lotes`,12,true);
@@ -289,13 +343,15 @@ $('#pdf-button').onclick=()=>{
       for(const r of selected)write(`${r.code} · ${r.name} | ${data.schools.find(s=>s.id===r.schoolId).name} | ${r.quantity} unidades | Unitario: ${money(r.unitPrice == null ? null : Math.round(r.unitPrice*100))} | Total: ${money(resourceTotalCents(r))} | ${r.state} | Uso ${r.use} | ${YEAR-r.year} años. ${recommendation(r,data.resources).reason}.`,9);
     }
     write('Criterios y alcance',11,true);write('Prioridad: obsoleto, uso nulo o edad >= 8 años: Eliminar/Renovar. Alta demanda y stock activo menor al objetivo máximo del grupo colegio/categoría: Adquirir. Resto: Mantener, con prioridad de reparación cuando corresponde. Disponibilidad calculada con el inventario completo. Unidades recomendadas son existencias, no cantidades de compra. Revisión técnica requerida.',9);
-    const pages=doc.getNumberOfPages();for(let p=1;p<=pages;p++){doc.setPage(p);doc.setFontSize(8);doc.setTextColor(130);doc.text('Nexo · Planificación tecnológica 2026',20,287);doc.text(`${p} / ${pages}`,180,287);}
+    const pages=doc.getNumberOfPages();for(let p=1;p<=pages;p++){doc.setPage(p);doc.setFontSize(8);doc.setTextColor(130);doc.text('Nexo · Planificación tecnológica '+selectedYear,20,287);doc.text(`${p} / ${pages}`,180,287);}
     doc.save(`nexo-resumen-${dateStamp()}.pdf`);toast('Resumen PDF generado.');
   }catch(error){toast('No se pudo generar el PDF: '+error.message);}
   finally { $('#dashboard-view').hidden = dashboardWasHidden; }
 };
-function canEditCloud() { return cloudLoaded && !cloudBusy && ['admin','coordinator'].includes(cloudStore?.role); }
+function canEditCloud() { return selectedYear===currentCycle()&&!cloudStore?.cycle?.readOnly&&cloudLoaded && !cloudBusy && ['admin','coordinator'].includes(cloudStore?.role); }
 async function runBusinessAction(action,payload,key){
+  await observations.flush();
+  if(selectedYear!==currentCycle())throw Error('El ciclo seleccionado está cerrado.');
   if(!cloudLoaded||cloudBusy||!cloudStore?.business)throw Error('Actualizá los datos y verificá la instalación de los módulos.');
   if(planner.hasChanges())throw Error('Guardá o descartá la planificación antes de realizar operaciones de stock.');
   const store=cloudStore;let knownFailure=false,committed=false;cloudBusy=true;applyAccess();
@@ -309,12 +365,17 @@ async function runBusinessAction(action,payload,key){
 }
 async function fetchBusinessReport(filters){
   if(!cloudStore?.business)throw Error('Primero conectá los módulos de gestión.');
+  if(cloudStore.cycleEnabled&&!cloudStore.cycle.available)throw Error('No hay un archivo verificado para ese ciclo.');
+  if(cloudStore.cycleEnabled){const report=cycleFinancialReport(data,cloudStore.business,selectedYear,filters);report.mode+=' Datos guardados al '+new Date(cloudStore.cycle.snapshotAt).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires'})+'.';return report;}
   const {data:report,error}=await cloudStore.call('nexo_business_report',{p_from:filters.from,p_to:filters.to,p_school:filters.school||null,p_status:filters.status||null});
   if(error)throw cloudError(error);return report;
 }
 function applyAccess() {
   planner.applyAccess();
+  $('#cycle-year').disabled=cloudBusy;$('#active-school').disabled=cloudBusy;
   if(currentView==='explorer'&&!cloudBusy)explorer.renderDetail();
+  if(currentView==='resources'&&!cloudBusy&&canEditCloud()&&!$('#software-add'))annual.software();
+  if(currentView==='requests'&&!cloudBusy&&canEditCloud()&&cloudStore?.business?.access?.finance&&!$('#request-estimates'))annual.approvals();
   if (!SUPABASE_CONFIG.enabled) return;
   const canEdit = canEditCloud();
   document.querySelectorAll('#add-button,#restore-button,[data-edit],[data-delete],#editor-form button[type="submit"],#confirm-accept').forEach(button => button.disabled = !canEdit);
@@ -323,7 +384,7 @@ function applyAccess() {
 function setAuthMessage(message) { $('#auth-message').textContent = message; }
 function clearCloudSession() {
   cloudSession = null; cloudStore = null; cloudLoaded = false; cloudBusy = false;
-  planner.clear();
+  observations.clear();planner.clear();
   explorer.clear();
   data = {version:1,currency:'USD',schools:[],categories:[],resources:[]};
   document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
@@ -341,7 +402,7 @@ async function loadCloud() {
   const store = cloudStore;
   cloudBusy = true; applyAccess(); $('#refresh-cloud').textContent='Actualizando…';
   try {
-    const inventory = await store.load();
+    store.year=selectedYear;const inventory = await store.load();
     if (cloudStore !== store) return;
     data = inventory; cloudLoaded = true; demo = false;
     document.body.classList.remove('cloud-locked'); $('#auth-screen').hidden = true;
@@ -359,10 +420,11 @@ async function loadCloud() {
     $('#login-form').hidden = true; $('#retry-cloud').hidden = false; $('#auth-signout').hidden = false;
     setAuthMessage(error.message);
   } finally {
-    if (cloudStore === store) { cloudBusy = false; $('#refresh-cloud').textContent='↻ Actualizar datos'; applyAccess(); }
+    if (cloudStore === store) { cloudBusy = false; $('#refresh-cloud').textContent='↻ Actualizar datos';renderCycleControls();applyAccess(); }
   }
 }
 async function runToolAction(action,tool) {
+  await observations.flush();
   if(planner.hasChanges())throw Error('Guardá o descartá la planificación antes de modificar herramientas.');
   if(!SUPABASE_CONFIG.enabled){
     const next=clone();next.schoolTools=(next.schoolTools||[]).filter(t=>t.id!==tool.id);
@@ -376,6 +438,8 @@ async function runToolAction(action,tool) {
   finally{if(cloudStore===store){cloudBusy=false;applyAccess();}}
 }
 async function savePlanningModel(model) {
+  try{await observations.flush();}catch(error){toast(error.message);return false;}
+  for(const entry of model.entries){const saved=observations.entries.get('plan:'+entry.id),current=data.planning2027?.entries.find(e=>e.id===entry.id);if(saved?.version>0&&!saved.pending()&&current)entry.notes=current.notes;}
   if(!SUPABASE_CONFIG.enabled)return persist({...clone(),planning2027:model});
   if(!canEditCloud()||!cloudStore?.planningV2)return false;
   const store=cloudStore;cloudBusy=true;applyAccess();
@@ -398,7 +462,7 @@ async function saveCloud(next,recovery=false) {
     if(recovery&&(store.planningV2||store.toolsEnabled)){await store.restore(next);next=await store.load();}
     else await store.save(next);
     if (cloudStore !== store) return false;
-    data=next; $('#cloud-state').textContent='Guardado en Supabase · USD';
+    data=store.cycleEnabled?await store.load():next; $('#cloud-state').textContent='Guardado en Supabase · USD';
     return true;
   } catch(error) {
     if (cloudStore !== store) return false;
@@ -443,6 +507,7 @@ async function initializeCloud() {
     }catch(error){setAuthMessage(error.message);}finally{button.disabled=false;}
   };
   const signOut=async()=>{
+    try{await observations.flush();}catch(error){toast(error.message);return;}
     if (planner.hasChanges()) { ask('Cerrar sesión sin guardar','Hay cambios pendientes en la planificación 2027. ¿Querés descartarlos y cerrar sesión?',()=>{planner.clear();signOut();}); return; }
     const {error}=await cloudClient.auth.signOut({scope:'local'});
     if(error){toast(cloudError(error).message);return;}
@@ -459,7 +524,7 @@ async function initializeCloud() {
     }catch{toast('No se pudo leer el inventario local anterior.');}
   };
   const refreshWhenIdle=()=>{
-    if(!document.hidden && cloudLoaded && !cloudBusy && !planner.hasChanges() && !document.querySelector('dialog[open]'))loadCloud();
+    if(!document.hidden && cloudLoaded && !cloudBusy && !planner.hasChanges() && !observations.pending() && !document.querySelector('dialog[open]'))loadCloud();
   };
   setInterval(refreshWhenIdle,30000); window.addEventListener('focus',refreshWhenIdle);
 }
