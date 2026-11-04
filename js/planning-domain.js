@@ -4,11 +4,19 @@ export const PLANNING_STATUSES = [
   {id:'rejected',name:'Descontinuado/Rechazado',tone:'red'}
 ];
 const text = (value,max) => typeof value==='string' && value.trim().length>0 && value.length<=max;
+export function planningBaseline(entry,resource){
+ return entry.baselineOverride===true?entry.baselineQuantity:resource?.quantity??entry.baselineQuantity;
+}
+export function setPlanningBaseline(entry,value,resource){
+ if(!Number.isInteger(value)||value<0||value>1000000)throw Error('La cantidad actual del plan debe ser un entero entre 0 y 1.000.000.');
+ return {...entry,baselineQuantity:value,baselineOverride:!!entry.originResourceId&&value!==resource?.quantity};
+}
 export function validatePlanningModel(model){
   if(!model || model.version!==2 || !Array.isArray(model.entries) || model.entries.length>5000 || !Array.isArray(model.excludedResourceIds) || model.excludedResourceIds.length>5000)throw Error('El plan 2027 no tiene un formato válido.');
   const ids=new Set(),codes=new Set(),origins=new Set(),excluded=new Set();
   for(const id of model.excludedResourceIds){if(!text(id,120)||excluded.has(id))throw Error('Hay exclusiones inválidas o repetidas en el plan.');excluded.add(id);}
   for(const e of model.entries){
+    if(e?.baselineOverride!==undefined&&typeof e.baselineOverride!=='boolean')throw Error('La base ajustada del plan no es válida.');
     if(!e||!text(e.id,200)||ids.has(e.id)||!text(e.name,120)||!text(e.code,60)||codes.has(e.code.trim().toLowerCase())||!text(e.schoolId,120)||!text(e.schoolName,120)||!text(e.categoryId,120)||!text(e.categoryName,120)||!Number.isInteger(e.baselineQuantity)||e.baselineQuantity<0||e.baselineQuantity>1000000||typeof e.notes!=='string'||e.notes.length>500)throw Error('Revisá los datos del recurso: nombre, código único, colegio, categoría y observaciones.');
     ids.add(e.id);codes.add(e.code.trim().toLowerCase());
     if(e.originResourceId!=null){if(!text(e.originResourceId,120)||origins.has(e.originResourceId)||excluded.has(e.originResourceId))throw Error('Un recurso de 2026 está repetido o excluido en el plan.');origins.add(e.originResourceId);}
@@ -40,7 +48,7 @@ export function setPlanningStatus(entry,status){
   return {...entry,status,quantity:status==='confirmed'?(entry.quantity??''):null};
 }
 export function duplicatePlanningEntry(entry,entries,id){
-  return {...entry,id,originResourceId:null,baselineQuantity:0,code:nextPlanningCode(entries),copiedFrom:entry.id};
+  return {...entry,id,originResourceId:null,baselineQuantity:0,baselineOverride:false,code:nextPlanningCode(entries),copiedFrom:entry.id};
 }
 export function removePlanningEntry(model,id){
   const next=structuredClone(model),row=next.entries.find(e=>e.id===id);if(!row)return next;

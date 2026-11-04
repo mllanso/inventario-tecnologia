@@ -1,7 +1,7 @@
-import {validateResourceImages} from './resource-images.js?v=20261104-images';
-import {validatePlanningModel} from './planning-domain.js?v=20261104-images';
-import {validateTools} from './tools-domain.js?v=20261104-images';
-import {currentCycle} from './annual-domain.js?v=20261104-images';
+import {validateResourceImages} from './resource-images.js?v=20261104-cards';
+import {validatePlanningModel} from './planning-domain.js?v=20261104-cards';
+import {validateTools} from './tools-domain.js?v=20261104-cards';
+import {currentCycle} from './annual-domain.js?v=20261104-cards';
 export let YEAR = currentCycle();
 export function setAnalysisYear(year){YEAR=Number(year);}
 export const STATES = ['Activo', 'En Reparación', 'Obsoleto'];

@@ -1,3 +1,11 @@
+import {normalize} from './school-branding.js?v=20261104-cards';
+export function resourceGroupImage(group,data){
+ const safe=src=>typeof src==='string'&&src.length<=160000&&/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(src);
+ const siblings=data.resources.filter(r=>(r.groupId||'lot:'+r.id)===group.id);
+ const images=[...group.rows,...siblings].flatMap(r=>r.images||[]);
+ const tools=(data.schoolTools||[]).filter(t=>group.rows.some(r=>r.schoolId===t.schoolId)&&normalize(t.name)===normalize(group.name));
+ return images.find(safe)||tools.map(t=>t.logo).find(safe)||null;
+}
 export const TRAFFIC = [
  {id:'available',label:'Verde',legend:'Actual / Implementado / Disponible',tone:'green'},
  {id:'in_progress',label:'Amarillo',legend:'En proceso / En ejecución',tone:'amber'},
