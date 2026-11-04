@@ -1,6 +1,6 @@
-import {valuation,approvalMetrics,executedBudget,currentCycle,cycleEnd} from './annual-domain.js?v=20261104-groups';
-import {escapeHTML as h,schoolIdentity,normalize} from './school-branding.js?v=20261104-groups';
-import {REQUEST_STATES} from './business-domain.js?v=20261104-groups';
+import {valuation,approvalMetrics,executedBudget,currentCycle,cycleEnd} from './annual-domain.js?v=20261104-sidebar';
+import {escapeHTML as h,schoolIdentity,normalize} from './school-branding.js?v=20261104-sidebar';
+import {REQUEST_STATES} from './business-domain.js?v=20261104-sidebar';
 const $=s=>document.querySelector(s);
 const money=c=>{if(c==null)return 'Sin registrar';const n=BigInt(c),a=n<0n?-n:n;return (n<0n?'-':'')+'USD '+(a/100n).toLocaleString('es-AR')+','+(a%100n).toString().padStart(2,'0');};
 const exportDollars=c=>BigInt(c)>BigInt(Number.MAX_SAFE_INTEGER)?(BigInt(c)/100n).toString()+'.'+(BigInt(c)%100n).toString().padStart(2,'0'):Number(c)/100;
