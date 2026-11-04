@@ -1,15 +1,15 @@
-import {AnnualView} from './annual-view.js?v=20261104-cycles';
-import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261104-cycles';
-import {ObservationSaves} from './autosave.js?v=20261104-cycles';
-import {planningModel} from './planning-domain.js?v=20261104-cycles';
-import { ExplorerView } from './explorer.js?v=20261104-cycles';
-import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261104-cycles';
-import { BusinessView } from './business.js?v=20261104-cycles';
-import { TRAFFIC } from './business-domain.js?v=20261104-cycles';
-import { PlanningView } from './planning.js?v=20261104-cycles';
+import {AnnualView} from './annual-view.js?v=20261104-images';
+import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261104-images';
+import {ObservationSaves} from './autosave.js?v=20261104-images';
+import {planningModel} from './planning-domain.js?v=20261104-images';
+import { ExplorerView } from './explorer.js?v=20261104-images';
+import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261104-images';
+import { BusinessView } from './business.js?v=20261104-images';
+import { TRAFFIC } from './business-domain.js?v=20261104-images';
+import { PlanningView } from './planning.js?v=20261104-images';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261104-cycles';
-import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261104-cycles';
+import { CloudInventory, cloudError } from './cloud.js?v=20261104-images';
+import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261104-images';
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -142,7 +142,6 @@ function setView() {
   $('#planning-view').hidden = !planning;
   $('#add-button').hidden = planning||module||exploring;
   $('#filters').hidden = entity||module||exploring; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = entity || planning||module||exploring||currentView==='resources'; $('#entities-view').hidden = !entity;
-  $('#pricing-summary').hidden = entity || planning||module||exploring||cloudStore?.role==='requester';
   $('#pdf-button').hidden = entity || planning||module||exploring;
   $('#add-button').textContent = currentView === 'schools' ? '＋ Nuevo colegio' : currentView === 'categories' ? '＋ Nueva categoría' : '＋ Nuevo recurso';
   render();
@@ -157,8 +156,6 @@ function renderContent() {
   const total = rows.reduce((s,r) => s+r.quantity,0);
   $('#filter-count').textContent = `${rows.length} de ${data.resources.length} lotes · ${total} unidades en la selección`;
   $('#table-count').textContent = `${rows.length} lotes registrados · ${total} unidades`;
-  const prices = priceSummary(rows);
-  $('#pricing-summary').innerHTML = `<div><p class="eyebrow">VALOR DEL INVENTARIO FILTRADO</p><strong>${money(prices.totalCents)}</strong><small>${prices.missingLots ? 'Total parcial: faltan precios por completar.' : 'Total de los artículos de la selección.'}</small></div><div><span>Unidades con precio</span><b>${prices.pricedUnits}</b></div><div><span>Lotes sin precio</span><b>${prices.missingLots}</b></div>`;
   business.renderTraffic(filterResources(data,{...filters,traffic:[]}),filters.traffic,id=>{filters.traffic=filters.traffic.includes(id)?filters.traffic.filter(x=>x!==id):[...filters.traffic,id];renderContent();});
   if(currentView==='resources'){business.renderGroups(rows);annual.software();}
   if(['requests','transfers','reports'].includes(currentView))business.render(currentView);
@@ -356,7 +353,7 @@ async function runBusinessAction(action,payload,key){
   if(planner.hasChanges())throw Error('Guardá o descartá la planificación antes de realizar operaciones de stock.');
   const store=cloudStore;let knownFailure=false,committed=false;cloudBusy=true;applyAccess();
   try{
-    const result=await store.call('nexo_business_action',{p_action:action,p_payload:payload,p_key:key});
+    const result=await store.call(action==='distribute'?'nexo_distribute_resources':'nexo_business_action',action==='distribute'?{p_payload:payload,p_key:key}:{p_action:action,p_payload:payload,p_key:key});
     if(result.error){knownFailure=true;throw cloudError(result.error);}
     committed=true;const inventory=await store.load();if(cloudStore!==store)throw Error('La sesión cambió durante la operación.');
     data=inventory;render();return result.data;
@@ -378,6 +375,7 @@ function applyAccess() {
   if(currentView==='requests'&&!cloudBusy&&canEditCloud()&&cloudStore?.business?.access?.finance&&!$('#request-estimates'))annual.approvals();
   if (!SUPABASE_CONFIG.enabled) return;
   const canEdit = canEditCloud();
+  document.querySelectorAll('#multi-distribute,#create-group,#merge-group').forEach(button=>button.disabled=!canEdit||!cloudStore?.business);
   document.querySelectorAll('#add-button,#restore-button,[data-edit],[data-delete],#editor-form button[type="submit"],#confirm-accept').forEach(button => button.disabled = !canEdit);
   $('#refresh-cloud').disabled = cloudBusy;
 }

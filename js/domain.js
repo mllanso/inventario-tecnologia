@@ -1,6 +1,7 @@
-import {validatePlanningModel} from './planning-domain.js?v=20261104-cycles';
-import {validateTools} from './tools-domain.js?v=20261104-cycles';
-import {currentCycle} from './annual-domain.js?v=20261104-cycles';
+import {validateResourceImages} from './resource-images.js?v=20261104-images';
+import {validatePlanningModel} from './planning-domain.js?v=20261104-images';
+import {validateTools} from './tools-domain.js?v=20261104-images';
+import {currentCycle} from './annual-domain.js?v=20261104-images';
 export let YEAR = currentCycle();
 export function setAnalysisYear(year){YEAR=Number(year);}
 export const STATES = ['Activo', 'En Reparación', 'Obsoleto'];
@@ -69,6 +70,7 @@ export function validateData(data) {
   for (const key of ['schools','categories']) if (new Set(data[key].map(item=>item.name.trim().toLocaleLowerCase('es'))).size !== data[key].length) throw Error('Hay nombres de colegios o categorías repetidos.');
   if (data.schools.some(s=>s.location != null && (typeof s.location !== 'string' || s.location.length > 160))) throw Error('La ubicación del colegio no es válida.');
   for (const r of data.resources) {
+    if(r.images!==undefined)validateResourceImages(r.images);
     if (r.trafficStatus !== undefined && !['available','in_progress','required','unclassified'].includes(r.trafficStatus)) throw Error('Semáforo inválido.');
     if (r.unitPrice != null && !validUnitPrice(r.unitPrice)) throw Error('El precio unitario debe ser un número entre 0 y 10.000.000, con hasta dos decimales.');
     if (!data.schools.some(s => s.id === r.schoolId) || !data.categories.some(c => c.id === r.categoryId) || !STATES.includes(r.state) || !USES.includes(r.use) || !Number.isInteger(r.quantity) || r.quantity < (data.businessVersion===1?0:1) || r.quantity > 1000000 || !Number.isInteger(r.target) || r.target < 1 || r.target > 1000000 || !Number.isInteger(r.year) || r.year < 1980 || r.year > currentCycle() || typeof r.code !== 'string' || !r.code.trim() || r.code.length > 60) throw Error('Un recurso tiene datos o relaciones inválidos.');

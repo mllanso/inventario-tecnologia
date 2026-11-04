@@ -1,6 +1,6 @@
-import {valuation,approvalMetrics,executedBudget,currentCycle,cycleEnd} from './annual-domain.js?v=20261104-cycles';
-import {escapeHTML as h,schoolIdentity,normalize} from './school-branding.js?v=20261104-cycles';
-import {REQUEST_STATES} from './business-domain.js?v=20261104-cycles';
+import {valuation,approvalMetrics,executedBudget,currentCycle,cycleEnd} from './annual-domain.js?v=20261104-images';
+import {escapeHTML as h,schoolIdentity,normalize} from './school-branding.js?v=20261104-images';
+import {REQUEST_STATES} from './business-domain.js?v=20261104-images';
 const $=s=>document.querySelector(s);
 const money=c=>{if(c==null)return 'Sin registrar';const n=BigInt(c),a=n<0n?-n:n;return (n<0n?'-':'')+'USD '+(a/100n).toLocaleString('es-AR')+','+(a%100n).toString().padStart(2,'0');};
 const exportDollars=c=>BigInt(c)>BigInt(Number.MAX_SAFE_INTEGER)?(BigInt(c)/100n).toString()+'.'+(BigInt(c)%100n).toString().padStart(2,'0'):Number(c)/100;
@@ -16,7 +16,7 @@ export class AnnualView{
  financial(){
   const root=$('#annual-valuation');if(!root)return;const value=valuation(this.schoolRows());
   if(this.getCycle?.()?.available===false){root.innerHTML='<section class="panel notice">No hay un archivo verificado al 31/12/'+this.getYear()+'. No se puede calcular una valoración histórica para este ciclo.</section>';return;}
-  root.innerHTML=`<section class="panel annual-valuation"><div class="module-toolbar"><div><p class="eyebrow">VALORACIÓN DEL INVENTARIO · CICLO ${this.getYear()}</p><h2>${money(value.total)}</h2><p>${value.missing?`Total parcial: ${value.missing} lotes sin costo unitario.`:'Cantidad × costo unitario de cada lote.'}</p></div><div><button class="button secondary" id="valuation-xlsx">Excel</button><button class="button secondary" id="valuation-pdf">PDF</button></div></div><p class="explorer-note">Corte del ciclo: ${cycleEnd(this.getYear())}. Estado patrimonial declarado; no aplica amortización automática. Los registros antiguos sin clasificación se muestran explícitamente.</p>${table(['Categoría patrimonial','Estado patrimonial','Unidades','Valor USD','Lotes sin precio'],value.groups.map(g=>[g.category,g.state,g.quantity,(g.cents/100).toFixed(2),g.missing]))}</section>`;
+  root.innerHTML=`<section class="panel annual-valuation"><div class="module-toolbar"><div><p class="eyebrow">VALOR DE INVENTARIO FILTRADO · CICLO ${this.getYear()}</p><h2>${money(value.total)}</h2><p>${value.missing?`Total parcial: ${value.missing} lotes sin costo unitario.`:'Cantidad × costo unitario de cada lote.'}</p></div><div><button class="button secondary" id="valuation-xlsx">Excel</button><button class="button secondary" id="valuation-pdf">PDF</button></div></div><p class="explorer-note">Corte del ciclo: ${cycleEnd(this.getYear())}. Estado patrimonial declarado; no aplica amortización automática. Los registros antiguos sin clasificación se muestran explícitamente.</p>${table(['Categoría patrimonial','Estado patrimonial','Unidades','Valor USD','Lotes sin precio'],value.groups.map(g=>[g.category,g.state,g.quantity,(g.cents/100).toFixed(2),g.missing]))}</section>`;
   const sheets=[{name:'Valoración',headers:['Categoría','Estado','Unidades','Valor USD','Sin precio'],rows:value.groups.map(g=>[g.category,g.state,g.quantity,g.cents/100,g.missing])},this.resourceSheet(this.schoolRows())];
   $('#valuation-xlsx').onclick=()=>this.export('xlsx',sheets,'valoracion');$('#valuation-pdf').onclick=()=>this.export('pdf',sheets,'valoracion');
  }

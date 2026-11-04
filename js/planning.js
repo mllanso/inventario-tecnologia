@@ -1,5 +1,5 @@
-import {createCSV} from './domain.js?v=20261104-cycles';
-import {PLANNING_STATUSES,planningModel,planningBaseEntry,validatePlanningModel,setPlanningStatus,duplicatePlanningEntry,removePlanningEntry,nextPlanningCode} from './planning-domain.js?v=20261104-cycles';
+import {createCSV} from './domain.js?v=20261104-images';
+import {PLANNING_STATUSES,planningModel,planningBaseEntry,validatePlanningModel,setPlanningStatus,duplicatePlanningEntry,removePlanningEntry,nextPlanningCode} from './planning-domain.js?v=20261104-images';
 const $=s=>document.querySelector(s);
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const options=(items,value)=>items.map(i=>`<option value="${h(i.id)}" ${i.id===value?'selected':''}>${h(i.name)}</option>`).join('');

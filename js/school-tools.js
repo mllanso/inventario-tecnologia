@@ -1,5 +1,5 @@
-import {escapeHTML as h,normalize} from './school-branding.js?v=20261104-cycles';
-import {TOOL_STATES,MAX_LOGO_LENGTH,validateTool,compareTools} from './tools-domain.js?v=20261104-cycles';
+import {escapeHTML as h,normalize} from './school-branding.js?v=20261104-images';
+import {TOOL_STATES,MAX_LOGO_LENGTH,validateTool,compareTools} from './tools-domain.js?v=20261104-images';
 const $=s=>document.querySelector(s);
 export class SchoolToolsView{
  constructor({getData,canEdit,installed,run,refresh,bindNotes,ask,toast}){
