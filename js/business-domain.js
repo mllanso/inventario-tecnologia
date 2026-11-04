@@ -1,7 +1,9 @@
-import {normalize} from './school-branding.js?v=20261104-cards';
+import {normalize} from './school-branding.js?v=20261104-groups';
 export function resourceGroupImage(group,data){
  const safe=src=>typeof src==='string'&&src.length<=160000&&/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(src);
  const siblings=data.resources.filter(r=>(r.groupId||'lot:'+r.id)===group.id);
+ const explicit=[...group.rows,...siblings].find(r=>Object.hasOwn(r,'groupImage'));
+ if(explicit)return safe(explicit.groupImage)?explicit.groupImage:null;
  const images=[...group.rows,...siblings].flatMap(r=>r.images||[]);
  const tools=(data.schoolTools||[]).filter(t=>group.rows.some(r=>r.schoolId===t.schoolId)&&normalize(t.name)===normalize(group.name));
  return images.find(safe)||tools.map(t=>t.logo).find(safe)||null;

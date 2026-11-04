@@ -1,7 +1,7 @@
-import { validateData } from './domain.js?v=20261104-cards';
-import {validatePlanningModel} from './planning-domain.js?v=20261104-cards';
-import {validateTools,validateTool} from './tools-domain.js?v=20261104-cards';
-import {currentCycle} from './annual-domain.js?v=20261104-cards';
+import { validateData } from './domain.js?v=20261104-groups';
+import {validatePlanningModel} from './planning-domain.js?v=20261104-groups';
+import {validateTools,validateTool} from './tools-domain.js?v=20261104-groups';
+import {currentCycle} from './annual-domain.js?v=20261104-groups';
 export class CloudInventory {
   constructor(client) { this.client = client; this.revision = null; this.role = null; this.business=null; this.planningV2=false; }
   async call(name,args){
@@ -78,6 +78,7 @@ export class CloudInventory {
 }
 export function cloudError(error) {
   const message = String(error?.message || 'No hay conexión con Supabase.');
+  if(message.includes('nexo_group_update'))return Error('Para editar agrupaciones, ejecutá supabase/group-editor.sql y actualizá los datos.');
   if(message.includes('nexo_distribute_resources'))return Error('Para guardar distribuciones, ejecutá supabase/distribution-images.sql y actualizá los datos.');
   if(message.includes('nexo_cycle'))return Error('Ejecutá supabase/annual-cycles.sql para activar los ciclos y reportes.');
   if (message.includes('NEXO_CONFLICT')) return Error('Otra persona modificó el inventario. Tus cambios no se guardaron. Usá “Actualizar datos” y volvé a aplicar la edición.');

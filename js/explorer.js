@@ -1,8 +1,8 @@
-import {SchoolToolsView} from './school-tools.js?v=20261104-cards';
-import {schoolBrand,schoolLogo,schoolIdentity,escapeHTML as h,normalize} from './school-branding.js?v=20261104-cards';
-import {schoolSummary,compareSchools,selectSchool} from './explorer-domain.js?v=20261104-cards';
-import {TRAFFIC,REQUEST_STATES} from './business-domain.js?v=20261104-cards';
-import {planningModel,PLANNING_STATUSES} from './planning-domain.js?v=20261104-cards';
+import {SchoolToolsView} from './school-tools.js?v=20261104-groups';
+import {schoolBrand,schoolLogo,schoolIdentity,escapeHTML as h,normalize} from './school-branding.js?v=20261104-groups';
+import {schoolSummary,compareSchools,selectSchool} from './explorer-domain.js?v=20261104-groups';
+import {TRAFFIC,REQUEST_STATES} from './business-domain.js?v=20261104-groups';
+import {planningModel,PLANNING_STATUSES} from './planning-domain.js?v=20261104-groups';
 const $=s=>document.querySelector(s);
 const money=c=>'USD '+(c/100).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const counts=map=>Object.entries(map).filter(([,n])=>n>0).map(([s,n])=>`${h(s)}: ${n}`).join(' · ')||'Sin unidades';

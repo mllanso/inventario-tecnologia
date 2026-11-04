@@ -1,15 +1,15 @@
-import {AnnualView} from './annual-view.js?v=20261104-cards';
-import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261104-cards';
-import {ObservationSaves} from './autosave.js?v=20261104-cards';
-import {planningModel} from './planning-domain.js?v=20261104-cards';
-import { ExplorerView } from './explorer.js?v=20261104-cards';
-import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261104-cards';
-import { BusinessView } from './business.js?v=20261104-cards';
-import { TRAFFIC } from './business-domain.js?v=20261104-cards';
-import { PlanningView } from './planning.js?v=20261104-cards';
+import {AnnualView} from './annual-view.js?v=20261104-groups';
+import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261104-groups';
+import {ObservationSaves} from './autosave.js?v=20261104-groups';
+import {planningModel} from './planning-domain.js?v=20261104-groups';
+import { ExplorerView } from './explorer.js?v=20261104-groups';
+import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261104-groups';
+import { BusinessView } from './business.js?v=20261104-groups';
+import { TRAFFIC } from './business-domain.js?v=20261104-groups';
+import { PlanningView } from './planning.js?v=20261104-groups';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261104-cards';
-import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261104-cards';
+import { CloudInventory, cloudError } from './cloud.js?v=20261104-groups';
+import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261104-groups';
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -353,7 +353,7 @@ async function runBusinessAction(action,payload,key){
   if(planner.hasChanges())throw Error('Guardá o descartá la planificación antes de realizar operaciones de stock.');
   const store=cloudStore;let knownFailure=false,committed=false;cloudBusy=true;applyAccess();
   try{
-    const result=await store.call(action==='distribute'?'nexo_distribute_resources':'nexo_business_action',action==='distribute'?{p_payload:payload,p_key:key}:{p_action:action,p_payload:payload,p_key:key});
+    const result=await store.call(action==='distribute'?'nexo_distribute_resources':action==='group_edit'?'nexo_group_update':'nexo_business_action',action==='distribute'?{p_payload:payload,p_key:key}:action==='group_edit'?{p_payload:payload,p_key:key,p_expected_revision:store.revision}:{p_action:action,p_payload:payload,p_key:key});
     if(result.error){knownFailure=true;throw cloudError(result.error);}
     committed=true;const inventory=await store.load();if(cloudStore!==store)throw Error('La sesión cambió durante la operación.');
     data=inventory;render();return result.data;
@@ -375,7 +375,7 @@ function applyAccess() {
   if(currentView==='requests'&&!cloudBusy&&canEditCloud()&&cloudStore?.business?.access?.finance&&!$('#request-estimates'))annual.approvals();
   if (!SUPABASE_CONFIG.enabled) return;
   const canEdit = canEditCloud();
-  document.querySelectorAll('#multi-distribute,#create-group,#merge-group').forEach(button=>button.disabled=!canEdit||!cloudStore?.business);
+  document.querySelectorAll('#multi-distribute,#create-group,#merge-group,#edit-resource-group').forEach(button=>button.disabled=!canEdit||!cloudStore?.business);
   document.querySelectorAll('#add-button,#restore-button,[data-edit],[data-delete],#editor-form button[type="submit"],#confirm-accept').forEach(button => button.disabled = !canEdit);
   $('#refresh-cloud').disabled = cloudBusy;
 }

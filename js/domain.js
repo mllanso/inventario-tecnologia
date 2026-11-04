@@ -1,7 +1,7 @@
-import {validateResourceImages} from './resource-images.js?v=20261104-cards';
-import {validatePlanningModel} from './planning-domain.js?v=20261104-cards';
-import {validateTools} from './tools-domain.js?v=20261104-cards';
-import {currentCycle} from './annual-domain.js?v=20261104-cards';
+import {validateResourceImages} from './resource-images.js?v=20261104-groups';
+import {validatePlanningModel} from './planning-domain.js?v=20261104-groups';
+import {validateTools} from './tools-domain.js?v=20261104-groups';
+import {currentCycle} from './annual-domain.js?v=20261104-groups';
 export let YEAR = currentCycle();
 export function setAnalysisYear(year){YEAR=Number(year);}
 export const STATES = ['Activo', 'En Reparación', 'Obsoleto'];
@@ -70,6 +70,7 @@ export function validateData(data) {
   for (const key of ['schools','categories']) if (new Set(data[key].map(item=>item.name.trim().toLocaleLowerCase('es'))).size !== data[key].length) throw Error('Hay nombres de colegios o categorías repetidos.');
   if (data.schools.some(s=>s.location != null && (typeof s.location !== 'string' || s.location.length > 160))) throw Error('La ubicación del colegio no es válida.');
   for (const r of data.resources) {
+    if(r.groupImage!==undefined&&r.groupImage!=='')validateResourceImages([r.groupImage]);
     if(r.images!==undefined)validateResourceImages(r.images);
     if (r.trafficStatus !== undefined && !['available','in_progress','required','unclassified'].includes(r.trafficStatus)) throw Error('Semáforo inválido.');
     if (r.unitPrice != null && !validUnitPrice(r.unitPrice)) throw Error('El precio unitario debe ser un número entre 0 y 10.000.000, con hasta dos decimales.');
