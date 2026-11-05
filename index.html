@@ -4,7 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#112b2a"><meta name="description" content="Gestión de inventario y planificación tecnológica escolar por ciclos anuales.">
   <title>Nexo · Coordinación de Tecnología</title>
-  <link rel="stylesheet" href="css/styles.css?v=20261105-insights">
+  <link rel="icon" type="image/png" href="assets/branding/nexo-logo.png?v=20261105-logo">
+  <link rel="stylesheet" href="css/styles.css?v=20261105-logo">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@3.0.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
@@ -13,14 +14,14 @@
 </head>
 <body class="cloud-start">
   <section id="auth-screen" class="auth-screen">
-    <div class="auth-card"><a class="brand" href="#dashboard"><span class="brand-mark">n</span> nexo.</a><p class="eyebrow">INVENTARIO COMPARTIDO · USD</p><h1>Tu coordinación,<br>en un mismo lugar.</h1><p>Ingresá con tu cuenta autorizada para consultar y gestionar el inventario de las instituciones.</p>
+    <div class="auth-card"><a class="brand" href="#dashboard"><img class="brand-logo" src="assets/branding/nexo-logo.png?v=20261105-logo" alt="" width="44" height="44"> nexo.</a><p class="eyebrow">INVENTARIO COMPARTIDO · USD</p><h1>Tu coordinación,<br>en un mismo lugar.</h1><p>Ingresá con tu cuenta autorizada para consultar y gestionar el inventario de las instituciones.</p>
       <form id="login-form" method="post"><label>Correo electrónico<input type="email" name="email" autocomplete="username" required maxlength="254"></label><label>Contraseña<input type="password" name="password" autocomplete="current-password" required></label><button class="button primary" type="submit">Ingresar</button></form>
       <p id="auth-message" role="status">Conectando con Supabase…</p><button id="retry-cloud" class="button secondary" type="button" hidden>Reintentar conexión</button><button id="auth-signout" class="text-button" type="button" hidden>Cerrar sesión</button>
       <small>El administrador debe crear tu cuenta y autorizarla. Los datos guardados anteriormente en tu navegador se conservan.</small><noscript>Necesitás activar JavaScript para utilizar esta aplicación.</noscript>
     </div>
   </section>
   <aside class="sidebar" id="main-sidebar">
-    <a class="brand" href="#dashboard"><span class="brand-mark">n</span> nexo<span class="brand-dot">.</span></a>
+    <a class="brand" href="#dashboard"><img class="brand-logo" src="assets/branding/nexo-logo.png?v=20261105-logo" alt="" width="44" height="44"> nexo<span class="brand-dot">.</span></a>
     <p class="brand-sub">COORDINACIÓN DE TECNOLOGÍA</p>
     <div class="workspace"><span class="workspace-icon">CT</span><div>Red de instituciones<small>Gestión de inventario</small></div></div>
     <p class="nav-caption">ESPACIO DE TRABAJO</p>

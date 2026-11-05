@@ -1,0 +1,1 @@
+Descomprimir y subir index.html y las carpetas completas css, js, assets a la raíz de GitHub. Confirmar cambios, esperar Pages y recargar con Ctrl + F5. No requiere SQL. Incluye todos los cambios frontend anteriores. El nuevo logo se usa en menú, acceso y pestaña del navegador. Preparado localmente: todavía no publicado.
