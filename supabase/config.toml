@@ -1,0 +1,4 @@
+# La plataforma verifica el JWT y la función comprueba además Auth.getUser
+# y el rol actual del usuario en la base de datos.
+[functions.nexo-admin-users]
+verify_jwt = true

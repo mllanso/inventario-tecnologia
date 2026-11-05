@@ -1,16 +1,17 @@
-import {initSidebar} from './sidebar.js?v=20261104-sidebar';
-import {AnnualView} from './annual-view.js?v=20261104-sidebar';
-import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261104-sidebar';
-import {ObservationSaves} from './autosave.js?v=20261104-sidebar';
-import {planningModel} from './planning-domain.js?v=20261104-sidebar';
-import { ExplorerView } from './explorer.js?v=20261104-sidebar';
-import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261104-sidebar';
-import { BusinessView } from './business.js?v=20261104-sidebar';
-import { TRAFFIC } from './business-domain.js?v=20261104-sidebar';
-import { PlanningView } from './planning.js?v=20261104-sidebar';
+import {AdminView} from './admin.js?v=20261105-admin';
+import {initSidebar} from './sidebar.js?v=20261105-admin';
+import {AnnualView} from './annual-view.js?v=20261105-admin';
+import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261105-admin';
+import {ObservationSaves} from './autosave.js?v=20261105-admin';
+import {planningModel} from './planning-domain.js?v=20261105-admin';
+import { ExplorerView } from './explorer.js?v=20261105-admin';
+import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261105-admin';
+import { BusinessView } from './business.js?v=20261105-admin';
+import { TRAFFIC } from './business-domain.js?v=20261105-admin';
+import { PlanningView } from './planning.js?v=20261105-admin';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261104-sidebar';
-import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261104-sidebar';
+import { CloudInventory, cloudError } from './cloud.js?v=20261105-admin';
+import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261105-admin';
 initSidebar();
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -37,6 +38,7 @@ const business = new BusinessView({onRequestsRender:()=>annual.approvals(),getYe
 const explorer=new ExplorerView({canEditTools:()=>SUPABASE_CONFIG.enabled?canEditCloud():selectedYear===currentCycle(),toolsInstalled:()=>!SUPABASE_CONFIG.enabled||cloudStore?.toolsEnabled===true,runTool:runToolAction,bindNotes:(input,id)=>bindObservation(input,'tool:'+id),toolRefresh:render,ask,toast,getData:()=>data,getBusiness:cycleBusiness,canSeePrices:()=>cloudStore?.role!=='requester',openInventory:id=>{Object.assign(filters,{search:'',schools:[id],categories:[],states:[],uses:[],traffic:[]});$('#search').value='';location.hash='resources';}});
 const observations=new ObservationSaves(saveObservation,()=>`${cloudSession?.user.id||'local'}:${selectedYear}:`);
 const annual=new AnnualView({getCycle:()=>cloudStore?.cycle,getData:()=>data,getBusiness:cycleBusiness,getYear:()=>selectedYear,getSchool:activeSchool,setSchool:setActiveSchool,canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():selectedYear===currentCycle(),finance:()=>cloudStore?.business?.access?.finance===true,action:runCycleAction,toolsView:explorer.tools,download,toast});
+const admin=new AdminView({getClient:()=>cloudClient,getRole:()=>cloudLoaded?cloudStore?.role:null,getUserId:()=>cloudSession?.user.id,toast,onChanged:()=>loadCloud()});
 function activeSchool(){return filters.schools.length===1?filters.schools[0]:'';}
 function cycleBusiness(){const b=cloudStore?.business;if(!b||!activeSchool())return b;const id=activeSchool(),requests=b.requests.filter(q=>q.school_id===id);return {...b,requests,events:b.events.filter(e=>requests.some(q=>q.id===e.request_id)),transfers:b.transfers.filter(t=>t.origin_id===id||t.destination_id===id)};}
 async function setActiveSchool(id){try{await observations.flush();filters.schools=id?[id]:[];business.report=null;business.reportFilters=null;render();return true;}catch(error){toast(error.message);return false;}}
@@ -125,26 +127,28 @@ function renderFilters() {
   multiFilter('states','Estado físico',STATES.map(x => ({id:x,name:x})),'Todos los estados');
   multiFilter('uses','Uso en '+selectedYear,USES.map(x => ({id:x,name:x})),'Todas las frecuencias');
 }
-const titles = {explorer:['Explorador Comparativo','Explorá el catálogo de cada colegio y compará hasta dos sedes en paralelo.'],dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Gestión de colegios','Cada institución, conectada con sus recursos.'],categories:['Categorías de recursos','Una estructura clara para organizar la tecnología.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
+const titles = {admin:['Administración','Usuarios, permisos y registro de modificaciones del sistema.'],explorer:['Explorador Comparativo','Explorá el catálogo de cada colegio y compará hasta dos sedes en paralelo.'],dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Gestión de colegios','Cada institución, conectada con sus recursos.'],categories:['Categorías de recursos','Una estructura clara para organizar la tecnología.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
 function setView() {
   currentView = location.hash.slice(1);
   if (!titles[currentView]) currentView = 'dashboard';
   const [title, description] = titles[currentView];
   $('#page-title').textContent = title; $('#breadcrumb').textContent = title; $('#page-description').textContent = description;
   document.querySelectorAll('[data-view]').forEach(a => { a.classList.toggle('active',a.dataset.view === currentView); if (a.dataset.view === currentView) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  const adminPage=currentView==='admin';
+  $('#admin-view').hidden=!adminPage;document.querySelector('.cycle-controls').hidden=adminPage;
   const entity = ['schools','categories'].includes(currentView);
   const exploring=currentView==='explorer';
   $('#explorer-view').hidden=!exploring;
   const planning = currentView === 'planning2027';
   const module = ['requests','transfers','reports'].includes(currentView);
   $('#business-view').hidden=!module;
-  $('#traffic-panel').hidden=entity||module||planning||exploring;
+  $('#traffic-panel').hidden=adminPage||entity||module||planning||exploring;
   $('#filter-states').hidden=planning; $('#filter-uses').hidden=planning;
   $('#grouped-resources').hidden=currentView!=='resources';$('#software-view').hidden=currentView!=='resources';
   $('#planning-view').hidden = !planning;
-  $('#add-button').hidden = planning||module||exploring;
-  $('#filters').hidden = entity||module||exploring; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = entity || planning||module||exploring||currentView==='resources'; $('#entities-view').hidden = !entity;
-  $('#pdf-button').hidden = entity || planning||module||exploring;
+  $('#add-button').hidden = adminPage||planning||module||exploring;
+  $('#filters').hidden = adminPage||entity||module||exploring; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = adminPage || entity || planning||module||exploring||currentView==='resources'; $('#entities-view').hidden = !entity;
+  $('#pdf-button').hidden = adminPage || entity || planning||module||exploring;
   $('#add-button').textContent = currentView === 'schools' ? '＋ Nuevo colegio' : currentView === 'categories' ? '＋ Nueva categoría' : '＋ Nuevo recurso';
   render();
   window.scrollTo({top:0,behavior:'auto'});
@@ -170,6 +174,7 @@ function renderContent() {
   if (currentView === 'planning2027') planner.render(rows);
   if (currentView === 'explorer') explorer.render();
   if(currentView==='reports')annual.financial();
+  if(currentView==='admin')admin.render();
   applyAccess();
 }
 function badge(label, tone, title = '') { return `<span class="badge ${tone}" title="${escapeHTML(title)}">${escapeHTML(label)}</span>`; }
@@ -370,6 +375,7 @@ async function fetchBusinessReport(filters){
   if(error)throw cloudError(error);return report;
 }
 function applyAccess() {
+  $('#admin-nav').hidden=!SUPABASE_CONFIG.enabled||!cloudLoaded||!['coordinator','admin'].includes(cloudStore?.role);
   planner.applyAccess();
   $('#cycle-year').disabled=cloudBusy;$('#active-school').disabled=cloudBusy;
   if(currentView==='explorer'&&!cloudBusy)explorer.renderDetail();
@@ -384,7 +390,7 @@ function applyAccess() {
 function setAuthMessage(message) { $('#auth-message').textContent = message; }
 function clearCloudSession() {
   cloudSession = null; cloudStore = null; cloudLoaded = false; cloudBusy = false;
-  observations.clear();planner.clear();
+  observations.clear();planner.clear();admin.clear();
   explorer.clear();
   data = {version:1,currency:'USD',schools:[],categories:[],resources:[]};
   document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
@@ -484,7 +490,7 @@ async function initializeCloud() {
   cloudClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey);
   const adoptSession=session=>{
     if(cloudSession?.user.id===session.user.id&&cloudStore){cloudSession=session;if(!cloudLoaded&&!cloudBusy)loadCloud();return;}
-    cloudSession=session;cloudStore=new CloudInventory(cloudClient);cloudLoaded=false;cloudBusy=false;$('#login-form').hidden=true;$('#auth-signout').hidden=false;setAuthMessage('Cargando inventario…');loadCloud();
+    admin.clear();cloudSession=session;cloudStore=new CloudInventory(cloudClient);cloudLoaded=false;cloudBusy=false;$('#login-form').hidden=true;$('#auth-signout').hidden=false;setAuthMessage('Cargando inventario…');loadCloud();
   };
   cloudClient.auth.onAuthStateChange((event,session)=>{
     if (event==='SIGNED_OUT') { clearCloudSession(); setAuthMessage('Ingresá con tu cuenta autorizada.'); }
