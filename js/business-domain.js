@@ -1,4 +1,4 @@
-import {normalize} from './school-branding.js?v=20261105-admin';
+import {normalize} from './school-branding.js?v=20261105-layout';
 export function resourceGroupImage(group,data){
  const safe=src=>typeof src==='string'&&src.length<=160000&&/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(src);
  const siblings=data.resources.filter(r=>(r.groupId||'lot:'+r.id)===group.id);

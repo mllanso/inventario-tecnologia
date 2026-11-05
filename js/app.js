@@ -1,17 +1,18 @@
-import {AdminView} from './admin.js?v=20261105-admin';
-import {initSidebar} from './sidebar.js?v=20261105-admin';
-import {AnnualView} from './annual-view.js?v=20261105-admin';
-import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261105-admin';
-import {ObservationSaves} from './autosave.js?v=20261105-admin';
-import {planningModel} from './planning-domain.js?v=20261105-admin';
-import { ExplorerView } from './explorer.js?v=20261105-admin';
-import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261105-admin';
-import { BusinessView } from './business.js?v=20261105-admin';
-import { TRAFFIC } from './business-domain.js?v=20261105-admin';
-import { PlanningView } from './planning.js?v=20261105-admin';
+import {selectableChart} from './chart-formats.js?v=20261105-layout';
+import {AdminView} from './admin.js?v=20261105-layout';
+import {initSidebar} from './sidebar.js?v=20261105-layout';
+import {AnnualView} from './annual-view.js?v=20261105-layout';
+import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261105-layout';
+import {ObservationSaves} from './autosave.js?v=20261105-layout';
+import {planningModel} from './planning-domain.js?v=20261105-layout';
+import { ExplorerView } from './explorer.js?v=20261105-layout';
+import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261105-layout';
+import { BusinessView } from './business.js?v=20261105-layout';
+import { TRAFFIC } from './business-domain.js?v=20261105-layout';
+import { PlanningView } from './planning.js?v=20261105-layout';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261105-admin';
-import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261105-admin';
+import { CloudInventory, cloudError } from './cloud.js?v=20261105-layout';
+import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261105-layout';
 initSidebar();
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -127,13 +128,13 @@ function renderFilters() {
   multiFilter('states','Estado físico',STATES.map(x => ({id:x,name:x})),'Todos los estados');
   multiFilter('uses','Uso en '+selectedYear,USES.map(x => ({id:x,name:x})),'Todas las frecuencias');
 }
-const titles = {admin:['Administración','Usuarios, permisos y registro de modificaciones del sistema.'],explorer:['Explorador Comparativo','Explorá el catálogo de cada colegio y compará hasta dos sedes en paralelo.'],dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Gestión de colegios','Cada institución, conectada con sus recursos.'],categories:['Categorías de recursos','Una estructura clara para organizar la tecnología.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
+const titles = {admin:['Administración','Usuarios, permisos y registro de modificaciones del sistema.'],explorer:['Explorador Comparativo','Explorá el catálogo de cada colegio y compará hasta dos sedes en paralelo.'],dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Colegios y categorías','Administrá las instituciones y las categorías de recursos.'],categories:['Colegios y categorías','Administrá las instituciones y las categorías de recursos.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
 function setView() {
   currentView = location.hash.slice(1);
   if (!titles[currentView]) currentView = 'dashboard';
   const [title, description] = titles[currentView];
   $('#page-title').textContent = title; $('#breadcrumb').textContent = title; $('#page-description').textContent = description;
-  document.querySelectorAll('[data-view]').forEach(a => { a.classList.toggle('active',a.dataset.view === currentView); if (a.dataset.view === currentView) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  document.querySelectorAll('[data-view]').forEach(a => { a.classList.toggle('active',(a.dataset.view === currentView || (currentView==='categories'&&a.dataset.view==='schools'))); if (a.dataset.view === currentView) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   const adminPage=currentView==='admin';
   $('#admin-view').hidden=!adminPage;document.querySelector('.cycle-controls').hidden=adminPage;
   const entity = ['schools','categories'].includes(currentView);
@@ -188,6 +189,7 @@ function renderTable(rows) {
 }
 function renderEntities() {
   const key = currentView;
+  for(const section of ['schools','categories']){const tab=$('#tab-'+section);tab.classList.toggle('active',section===key);if(section===key)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');}
   $('#entity-list').innerHTML = data[key].length ? data[key].map(entity => {
     const rows = data.resources.filter(r => r[key==='schools'?'schoolId':'categoryId']===entity.id);
     return `<article class="entity-card"><span class="entity-icon">${key==='schools'?schoolLogo(entity,'card'):'◇'}</span><h3>${escapeHTML(entity.name)}</h3><p>${key==='schools'?escapeHTML(entity.location || 'Sin ubicación registrada'):'Categoría de recursos tecnológicos'}<br>${rows.length} lotes · ${rows.reduce((s,r)=>s+r.quantity,0)} unidades</p><div class="entity-actions"><button class="text-button" data-edit="${escapeHTML(entity.id)}">Editar ${key==='schools'?'colegio':'categoría'}</button><button class="text-button" data-delete="${escapeHTML(entity.id)}">Eliminar</button></div></article>`;
@@ -199,7 +201,7 @@ const colors = ['#367f69','#d6b570','#c78b80','#dce6df'];
 function chart(id, config) {
   charts[id]?.destroy();
   if (!window.Chart) return;
-  charts[id] = new Chart($(id),config);
+  charts[id] = selectableChart($(id),config);
 }
 function renderDashboard(rows) {
   const sum = list => list.reduce((s,r)=>s+r.quantity,0);

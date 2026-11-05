@@ -1,5 +1,5 @@
-import {prepareResourceImage,validateResourceImages,MAX_RESOURCE_IMAGES} from './resource-images.js?v=20261105-admin';
-import {resourceGroupImage,TRAFFIC,trafficOf,groupResources,requestColor,REQUEST_STATES,TRANSFER_STATES,usd,centsFromInput,exportReportXLSX,exportReportPDF} from './business-domain.js?v=20261105-admin';
+import {prepareResourceImage,validateResourceImages,MAX_RESOURCE_IMAGES} from './resource-images.js?v=20261105-layout';
+import {resourceGroupImage,TRAFFIC,trafficOf,groupResources,requestColor,REQUEST_STATES,TRANSFER_STATES,usd,centsFromInput,exportReportXLSX,exportReportPDF} from './business-domain.js?v=20261105-layout';
 const $=s=>document.querySelector(s);
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const field=(name,label,type='text',value='',extra='')=>`<label>${label}<input name="${name}" type="${type}" value="${h(value)}" ${extra}></label>`;

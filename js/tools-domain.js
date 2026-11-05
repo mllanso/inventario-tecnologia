@@ -1,4 +1,4 @@
-import {normalize} from './school-branding.js?v=20261105-admin';
+import {normalize} from './school-branding.js?v=20261105-layout';
 export const TOOL_STATES=[{id:'available',name:'Disponible',tone:'green'},{id:'in_progress',name:'En proceso',tone:'amber'},{id:'required',name:'Requerida / Pendiente',tone:'red'}];
 export const MAX_LOGO_LENGTH=160000;
 const text=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;

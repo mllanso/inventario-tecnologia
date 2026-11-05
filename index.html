@@ -4,12 +4,12 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#112b2a"><meta name="description" content="Gestión de inventario y planificación tecnológica escolar por ciclos anuales.">
   <title>Nexo · Coordinación de Tecnología</title>
-  <link rel="stylesheet" href="css/styles.css?v=20261105-admin">
+  <link rel="stylesheet" href="css/styles.css?v=20261105-layout">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@3.0.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script type="module" src="js/app.js?v=20261105-admin"></script>
+  <script type="module" src="js/app.js?v=20261105-layout"></script>
 </head>
 <body class="cloud-start">
   <section id="auth-screen" class="auth-screen">
@@ -27,9 +27,8 @@
     <nav aria-label="Navegación principal">
       <a href="#dashboard" data-view="dashboard"><span>◫</span> Dashboard general</a>
       <a href="#resources" data-view="resources"><span>▦</span> Gestión de recursos</a>
-      <a href="#schools" data-view="schools"><span>⌂</span> Gestión de colegios</a>
+      <a href="#schools" data-view="schools"><span>⌂</span> Colegios y categorías</a>
       <a href="#explorer" data-view="explorer"><span>◎</span> Explorador Comparativo</a>
-      <a href="#categories" data-view="categories"><span>◇</span> Categorías</a>
       <a href="#planning2027" data-view="planning2027"><span>↗</span> Planificación 2027</a>
       <a href="#requests" data-view="requests"><span>＋</span> Solicitudes y compras</a>
       <a href="#transfers" data-view="transfers"><span>⇄</span> Transferencias</a>
@@ -75,7 +74,7 @@
         <section class="panel age-panel"><div class="panel-heading"><div><h2>Uso y antigüedad del equipamiento</h2><p class="panel-description">Unidades por frecuencia de uso y edad al cierre del ciclo seleccionado.</p></div></div><div class="age-chart"><canvas id="age-chart" role="img" aria-label="Cruce de frecuencia de uso y antigüedad"></canvas></div></section>
       </div>
       <section class="panel inventory-panel" id="inventory-view"><div class="panel-heading"><div><p class="eyebrow">DETALLE DEL INVENTARIO</p><h2 id="inventory-title">Recursos tecnológicos</h2></div><button class="button secondary" id="csv-button">↓ Exportar CSV</button></div><div class="table-scroll"><table><thead><tr><th>Recurso / Código</th><th>Colegio</th><th>Categoría</th><th>Estado</th><th>Uso del ciclo</th><th>Unidades</th><th>Precio unitario (USD)</th><th>Total (USD)</th><th>Edad</th><th>Decisión</th><th>Acciones</th></tr></thead><tbody id="resource-rows"></tbody></table></div><div class="table-footer"><span id="table-count"></span><span>La exportación respeta los filtros activos</span></div></section>
-      <section id="entities-view" hidden><div class="entity-grid" id="entity-list"></div></section>
+      <section id="entities-view" hidden><div class="entity-tabs" aria-label="Gestión institucional"><a href="#schools" id="tab-schools">Colegios</a><a href="#categories" id="tab-categories">Categorías</a></div><div class="entity-grid" id="entity-list"></div></section>
       <section id="planning-view" hidden>
         <div class="planning-intro"><div><p class="eyebrow">DE 2026 A 2027</p><h2>Qué necesitamos para el próximo ciclo</h2><p>Todos los recursos cargados en el inventario 2026, con su cantidad actual. Confirmá los recursos para habilitar sus cantidades. También podés agregar, duplicar o quitar filas del plan sin modificar el stock de 2026.</p></div><span class="year-chip">2026 → 2027</span></div>
         <div id="planning-migration" class="notice" hidden>Falta activar la planificación en Supabase. Ejecutá supabase/planning-2027-v2.sql en SQL Editor y pulsá Actualizar datos.</div>
