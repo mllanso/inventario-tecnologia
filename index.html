@@ -4,12 +4,12 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#112b2a"><meta name="description" content="Gestión de inventario y planificación tecnológica escolar por ciclos anuales.">
   <title>Nexo · Coordinación de Tecnología</title>
-  <link rel="stylesheet" href="css/styles.css?v=20261105-layout">
+  <link rel="stylesheet" href="css/styles.css?v=20261105-insights">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@3.0.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script type="module" src="js/app.js?v=20261105-layout"></script>
+  <script type="module" src="js/app.js?v=20261105-insights"></script>
 </head>
 <body class="cloud-start">
   <section id="auth-screen" class="auth-screen">
@@ -32,6 +32,7 @@
       <a href="#planning2027" data-view="planning2027"><span>↗</span> Planificación 2027</a>
       <a href="#requests" data-view="requests"><span>＋</span> Solicitudes y compras</a>
       <a href="#transfers" data-view="transfers"><span>⇄</span> Transferencias</a>
+      <a href="#insights" data-view="insights"><span>◴</span> Reporte interactivo</a>
       <a href="#reports" data-view="reports"><span>▥</span> Reportes financieros</a>
       <a href="#admin" data-view="admin" id="admin-nav" hidden><span>⚙</span> Administración</a>
     </nav>
@@ -54,6 +55,7 @@
       <section id="traffic-panel" class="traffic-grid" aria-label="Filtrar por semáforo"></section>
       <section id="grouped-resources" hidden></section>
       <section id="software-view" hidden></section>
+      <section id="insights-view" hidden></section>
       <section id="business-view" hidden></section>
       <section id="admin-view" hidden></section>
       <section id="explorer-view" data-explorer-root hidden>

@@ -1,7 +1,7 @@
-import { validateData } from './domain.js?v=20261105-layout';
-import {validatePlanningModel} from './planning-domain.js?v=20261105-layout';
-import {validateTools,validateTool} from './tools-domain.js?v=20261105-layout';
-import {currentCycle} from './annual-domain.js?v=20261105-layout';
+import { validateData } from './domain.js?v=20261105-insights';
+import {validatePlanningModel} from './planning-domain.js?v=20261105-insights';
+import {validateTools,validateTool} from './tools-domain.js?v=20261105-insights';
+import {currentCycle} from './annual-domain.js?v=20261105-insights';
 export class CloudInventory {
   constructor(client) { this.client = client; this.revision = null; this.role = null; this.business=null; this.planningV2=false; }
   async call(name,args){

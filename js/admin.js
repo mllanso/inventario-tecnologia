@@ -1,4 +1,4 @@
-import {escapeHTML as h} from './school-branding.js?v=20261105-layout';
+import {escapeHTML as h} from './school-branding.js?v=20261105-insights';
 const $=s=>document.querySelector(s);
 const roles=[['coordinator','Coordinador'],['admin','Administrador'],['viewer','Solo lectura'],['requester','Solicitante']];
 const roleName=role=>roles.find(r=>r[0]===role)?.[1]||role;

@@ -18,7 +18,7 @@ export function selectableChart(canvas,config){
  const round=['pie','doughnut'].includes(config.type);
  const choices=round?[['doughnut','Anillo'],['pie','Circular'],['bar','Barras']]:[['bar','Barras verticales'],['horizontal','Barras horizontales'],['line','Líneas']];
  const key='nexo.chart-format.'+canvas.id;
- let style=round?config.type:config.options?.indexAxis==='y'?'horizontal':'bar';
+ let style=round?config.type:config.type==='line'?'line':config.options?.indexAxis==='y'?'horizontal':'bar';
  try{const saved=localStorage.getItem(key);if(choices.some(([id])=>id===saved))style=saved;}catch{}
  const panel=canvas.closest('article,section'),old=panel.querySelector('[data-chart-format="'+canvas.id+'"]');old?.remove();
  const label=document.createElement('label');label.className='chart-format';label.dataset.chartFormat=canvas.id;label.append('Formato de gráfico ');

@@ -1,18 +1,19 @@
-import {selectableChart} from './chart-formats.js?v=20261105-layout';
-import {AdminView} from './admin.js?v=20261105-layout';
-import {initSidebar} from './sidebar.js?v=20261105-layout';
-import {AnnualView} from './annual-view.js?v=20261105-layout';
-import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261105-layout';
-import {ObservationSaves} from './autosave.js?v=20261105-layout';
-import {planningModel} from './planning-domain.js?v=20261105-layout';
-import { ExplorerView } from './explorer.js?v=20261105-layout';
-import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261105-layout';
-import { BusinessView } from './business.js?v=20261105-layout';
-import { TRAFFIC } from './business-domain.js?v=20261105-layout';
-import { PlanningView } from './planning.js?v=20261105-layout';
+import {InsightsView} from './insights.js?v=20261105-insights';
+import {selectableChart} from './chart-formats.js?v=20261105-insights';
+import {AdminView} from './admin.js?v=20261105-insights';
+import {initSidebar} from './sidebar.js?v=20261105-insights';
+import {AnnualView} from './annual-view.js?v=20261105-insights';
+import {currentCycle,cycleFinancialReport} from './annual-domain.js?v=20261105-insights';
+import {ObservationSaves} from './autosave.js?v=20261105-insights';
+import {planningModel} from './planning-domain.js?v=20261105-insights';
+import { ExplorerView } from './explorer.js?v=20261105-insights';
+import {brandSchoolNames,schoolLogo,schoolIdentity} from './school-branding.js?v=20261105-insights';
+import { BusinessView } from './business.js?v=20261105-insights';
+import { TRAFFIC } from './business-domain.js?v=20261105-insights';
+import { PlanningView } from './planning.js?v=20261105-insights';
 import { SUPABASE_CONFIG } from './config.js';
-import { CloudInventory, cloudError } from './cloud.js?v=20261105-layout';
-import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261105-layout';
+import { CloudInventory, cloudError } from './cloud.js?v=20261105-insights';
+import { YEAR, setAnalysisYear, STATES, USES, validateData, recommendation, filterResources, createCSV, demoData, validUnitPrice, resourceTotalCents, priceSummary, decimalPrice, nextLotCode } from './domain.js?v=20261105-insights';
 initSidebar();
 const $ = s => document.querySelector(s);
 const money = cents => cents == null ? 'Sin precio' : 'USD ' + (cents / 100).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -40,6 +41,7 @@ const explorer=new ExplorerView({canEditTools:()=>SUPABASE_CONFIG.enabled?canEdi
 const observations=new ObservationSaves(saveObservation,()=>`${cloudSession?.user.id||'local'}:${selectedYear}:`);
 const annual=new AnnualView({getCycle:()=>cloudStore?.cycle,getData:()=>data,getBusiness:cycleBusiness,getYear:()=>selectedYear,getSchool:activeSchool,setSchool:setActiveSchool,canEdit:()=>SUPABASE_CONFIG.enabled?canEditCloud():selectedYear===currentCycle(),finance:()=>cloudStore?.business?.access?.finance===true,action:runCycleAction,toolsView:explorer.tools,download,toast});
 const admin=new AdminView({getClient:()=>cloudClient,getRole:()=>cloudLoaded?cloudStore?.role:null,getUserId:()=>cloudSession?.user.id,toast,onChanged:()=>loadCloud()});
+const insights=new InsightsView({getData:()=>data,getBusiness:()=>cloudStore?.business,getYear:()=>selectedYear,getSchool:activeSchool,getCycle:()=>cloudStore?.cycle,getUserId:()=>cloudSession?.user.id,toast});
 function activeSchool(){return filters.schools.length===1?filters.schools[0]:'';}
 function cycleBusiness(){const b=cloudStore?.business;if(!b||!activeSchool())return b;const id=activeSchool(),requests=b.requests.filter(q=>q.school_id===id);return {...b,requests,events:b.events.filter(e=>requests.some(q=>q.id===e.request_id)),transfers:b.transfers.filter(t=>t.origin_id===id||t.destination_id===id)};}
 async function setActiveSchool(id){try{await observations.flush();filters.schools=id?[id]:[];business.report=null;business.reportFilters=null;render();return true;}catch(error){toast(error.message);return false;}}
@@ -128,13 +130,14 @@ function renderFilters() {
   multiFilter('states','Estado físico',STATES.map(x => ({id:x,name:x})),'Todos los estados');
   multiFilter('uses','Uso en '+selectedYear,USES.map(x => ({id:x,name:x})),'Todas las frecuencias');
 }
-const titles = {admin:['Administración','Usuarios, permisos y registro de modificaciones del sistema.'],explorer:['Explorador Comparativo','Explorá el catálogo de cada colegio y compará hasta dos sedes en paralelo.'],dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Colegios y categorías','Administrá las instituciones y las categorías de recursos.'],categories:['Colegios y categorías','Administrá las instituciones y las categorías de recursos.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
+const titles = {insights:['Reporte interactivo','Actividad por institución, recurso y período, con exportación ejecutiva.'],admin:['Administración','Usuarios, permisos y registro de modificaciones del sistema.'],explorer:['Explorador Comparativo','Explorá el catálogo de cada colegio y compará hasta dos sedes en paralelo.'],dashboard:['Dashboard general','Una mirada integral a la tecnología de tus instituciones.'],resources:['Gestión de recursos','Organizá, actualizá y analizá tu inventario tecnológico.'],schools:['Colegios y categorías','Administrá las instituciones y las categorías de recursos.'],categories:['Colegios y categorías','Administrá las instituciones y las categorías de recursos.'],planning2027:['Planificación 2027','Definí las necesidades del próximo ciclo a partir del inventario 2026.'],requests:['Solicitudes y compras','Del pedido de tu sede a la recepción de los recursos.'],transfers:['Transferencias','Reservas y recepciones entre colegios con trazabilidad.'],reports:['Reportes financieros','Costos en USD por sede y fecha de corte.']};
 function setView() {
   currentView = location.hash.slice(1);
   if (!titles[currentView]) currentView = 'dashboard';
   const [title, description] = titles[currentView];
   $('#page-title').textContent = title; $('#breadcrumb').textContent = title; $('#page-description').textContent = description;
   document.querySelectorAll('[data-view]').forEach(a => { a.classList.toggle('active',(a.dataset.view === currentView || (currentView==='categories'&&a.dataset.view==='schools'))); if (a.dataset.view === currentView) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  const insightsPage=currentView==='insights';$('#insights-view').hidden=!insightsPage;
   const adminPage=currentView==='admin';
   $('#admin-view').hidden=!adminPage;document.querySelector('.cycle-controls').hidden=adminPage;
   const entity = ['schools','categories'].includes(currentView);
@@ -143,13 +146,13 @@ function setView() {
   const planning = currentView === 'planning2027';
   const module = ['requests','transfers','reports'].includes(currentView);
   $('#business-view').hidden=!module;
-  $('#traffic-panel').hidden=adminPage||entity||module||planning||exploring;
+  $('#traffic-panel').hidden=insightsPage||adminPage||entity||module||planning||exploring;
   $('#filter-states').hidden=planning; $('#filter-uses').hidden=planning;
   $('#grouped-resources').hidden=currentView!=='resources';$('#software-view').hidden=currentView!=='resources';
   $('#planning-view').hidden = !planning;
-  $('#add-button').hidden = adminPage||planning||module||exploring;
-  $('#filters').hidden = adminPage||entity||module||exploring; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = adminPage || entity || planning||module||exploring||currentView==='resources'; $('#entities-view').hidden = !entity;
-  $('#pdf-button').hidden = adminPage || entity || planning||module||exploring;
+  $('#add-button').hidden = insightsPage||adminPage||planning||module||exploring;
+  $('#filters').hidden = insightsPage||adminPage||entity||module||exploring; $('#dashboard-view').hidden = currentView !== 'dashboard'; $('#inventory-view').hidden = insightsPage || adminPage || entity || planning||module||exploring||currentView==='resources'; $('#entities-view').hidden = !entity;
+  $('#pdf-button').hidden = insightsPage || adminPage || entity || planning||module||exploring;
   $('#add-button').textContent = currentView === 'schools' ? '＋ Nuevo colegio' : currentView === 'categories' ? '＋ Nueva categoría' : '＋ Nuevo recurso';
   render();
   window.scrollTo({top:0,behavior:'auto'});
@@ -176,6 +179,7 @@ function renderContent() {
   if (currentView === 'explorer') explorer.render();
   if(currentView==='reports')annual.financial();
   if(currentView==='admin')admin.render();
+  if(currentView==='insights')insights.render();
   applyAccess();
 }
 function badge(label, tone, title = '') { return `<span class="badge ${tone}" title="${escapeHTML(title)}">${escapeHTML(label)}</span>`; }

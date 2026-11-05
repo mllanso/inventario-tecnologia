@@ -1,8 +1,8 @@
-import {SchoolToolsView} from './school-tools.js?v=20261105-layout';
-import {schoolBrand,schoolLogo,schoolIdentity,escapeHTML as h,normalize} from './school-branding.js?v=20261105-layout';
-import {schoolSummary,compareSchools,selectSchool} from './explorer-domain.js?v=20261105-layout';
-import {TRAFFIC,REQUEST_STATES} from './business-domain.js?v=20261105-layout';
-import {planningModel,PLANNING_STATUSES} from './planning-domain.js?v=20261105-layout';
+import {SchoolToolsView} from './school-tools.js?v=20261105-insights';
+import {schoolBrand,schoolLogo,schoolIdentity,escapeHTML as h,normalize} from './school-branding.js?v=20261105-insights';
+import {schoolSummary,compareSchools,selectSchool} from './explorer-domain.js?v=20261105-insights';
+import {TRAFFIC,REQUEST_STATES} from './business-domain.js?v=20261105-insights';
+import {planningModel,PLANNING_STATUSES} from './planning-domain.js?v=20261105-insights';
 const $=s=>document.querySelector(s);
 const money=c=>'USD '+(c/100).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const counts=map=>Object.entries(map).filter(([,n])=>n>0).map(([s,n])=>`${h(s)}: ${n}`).join(' · ')||'Sin unidades';
